@@ -1245,7 +1245,7 @@ const RESTORE_AT = 0.75;
 // ルール：いちょう祭りの7日間（7分）、最後の一葉を散らせずに守り切ればクリア。
 // すべての木が葉を落としきったら冬（ゲームオーバー）。同じ木をよみがえらせられるのは2日に1回まで
 const GOAL_DAYS = 7, REVIVE_DAYS = 2;   // よみがえらせた日から2日たつまで、同じ木はよみがえらない
-const RATE_BASE = (window.__ichoTune && window.__ichoTune.base) || 1.5, RATE_T = (window.__ichoTune && window.__ichoTune.T) || 150;   // 散る速さ（何もしないと約3.5日で最後の一葉が散る）と、時間とともに速くなる度合い   // 葉がこれより減ると「枯れかけ」：てっぺんの玉が点灯し、触れるとよみがえる
+const RATE_BASE = (window.__ichoTune && window.__ichoTune.base) || 2.3, RATE_T = (window.__ichoTune && window.__ichoTune.T) || Infinity;   // 散る速さは7日間ずっと同じ（何もしないと約3.5日で最後の一葉が散る）   // 葉がこれより減ると「枯れかけ」：てっぺんの玉が点灯し、触れるとよみがえる
 function stageOf(r) { return r > 0.86 ? 0 : r > 0.62 ? 1 : r > 0.4 ? 2 : r > 0.2 ? 3 : r > 0.015 ? 4 : -1; }
 const TPL_H = 20, TPL_Y0 = 3.4;
 const N_CLUSTERS = LOW ? 2800 : 7000;
@@ -2416,7 +2416,7 @@ function restoreTree(t, ti) {
 const _body = new THREE.Vector3();
 let lastUsedToast = -10, goldSum = 0;
 function updateTrees(dt) {
-  const rate = RATE_BASE * (1 + elapsed / RATE_T) * (1 + wind.gust * 1.6); // 時間とともに散るのが早くなる
+  const rate = RATE_BASE * (1 + elapsed / RATE_T) * (1 + wind.gust * 1.6); // 木枯らしが吹くと速く散る
   const today = calDay(elapsed);
   const px = player.pos.x, pz = player.pos.z;
   const body = _body.set(px, player.pos.y + 0.9, pz);   // _v は葉の位置計算で上書きされるので別の変数を使う
