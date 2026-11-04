@@ -72,3 +72,5 @@ body.touch #touchUI { display: block; }
 .btn3 { font-size: 13px; padding: 7px 16px; box-shadow: none; }
 .btn3.off { background: rgba(0,0,0,.25); color: #e8d9a8; border: 1px solid rgba(255,216,74,.4); }
 .story { font-family: "Shippori Mincho", serif; font-size: 20px; letter-spacing: .15em; margin: 6px 0 18px; }
+#stats .row span#alive.danger { color: #ff7a5a; }
+.goal { font-size: 14px; color: #ffe27a; margin: -8px 0 16px; }

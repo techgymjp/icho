@@ -1241,7 +1241,11 @@ const barkMat = new THREE.MeshStandardMaterial({ map: BARK.map, normalMap: BARK.
 applyWind(barkMat, false);
 
 const STAGE_FRAC = [1, 0.75, 0.5, 0.3, 0.1];
-const RESTORE_AT = 0.75;   // 葉がこれより減ると「枯れかけ」：てっぺんの玉が点灯し、触れるとよみがえる
+const RESTORE_AT = 0.75;
+// ルール：いちょう祭りの7日間（7分）、最後の一葉を散らせずに守り切ればクリア。
+// すべての木が葉を落としきったら冬（ゲームオーバー）。同じ木をよみがえらせられるのは1日1回まで
+const GOAL_DAYS = 7;
+const RATE_BASE = (window.__ichoTune && window.__ichoTune.base) || 1.15, RATE_T = (window.__ichoTune && window.__ichoTune.T) || 150;   // 散る速さ（以前の約1/2.3）と、時間とともに速くなる度合い   // 葉がこれより減ると「枯れかけ」：てっぺんの玉が点灯し、触れるとよみがえる
 function stageOf(r) { return r > 0.86 ? 0 : r > 0.62 ? 1 : r > 0.4 ? 2 : r > 0.2 ? 3 : r > 0.015 ? 4 : -1; }
 const TPL_H = 20, TPL_Y0 = 3.4;
 const N_CLUSTERS = LOW ? 2800 : 7000;
@@ -1644,7 +1648,7 @@ function updatePlayer(dt) {
     if (player.climbing) { p.x += Math.sin(player.face) * 0.4; p.z += Math.cos(player.face) * 0.4; } // 幹を蹴って後ろへ
     player.lastTop = trees.find((t) => Math.hypot(t.x - p.x, t.z - p.z) < 2 && p.y > t.h - 2.5) || null;
     player.climbing = null; player.riding = null; player.onGround = false;
-    sfx.jump(0.3);
+    sfx.jump();
   }
   jumpPressed = false;
   if (player.boost > 0) {
@@ -1676,6 +1680,9 @@ function updatePlayer(dt) {
     else {
       if (along > 0.3) p.y += 4 * boostMul * dt;
       else if (along < -0.3) p.y -= 4 * boostMul * dt;
+      // 0.5m 登る（降りる）ごとに「ざっ」
+      player.climbStep = (player.climbStep || 0) + Math.abs(p.y - prevY);
+      if (player.climbStep > 0.5) { player.climbStep = 0; sfx.climb(); }
       p.y = Math.min(p.y, t.h - 0.4);
       player.vy = 0;
       let dx = p.x - t.x, dz = p.z - t.z, d = Math.hypot(dx, dz) || 1;
@@ -1752,7 +1759,7 @@ function updatePlayer(dt) {
   if (!player.climbing) {
     const sup = supportAt(p.x, p.z, Math.max(prevY, p.y) + 0.45);
     if (player.vy <= 0 && p.y <= sup.y) {
-      if (!player.onGround && player.vy < -12) sfx.land();
+      if (!player.onGround && player.vy < -2) sfx.land(-player.vy);
       p.y = sup.y; player.vy = 0; player.onGround = true; player.riding = sup.car; player.lastTop = null;
     } else if (p.y > sup.y + 0.05) { player.onGround = false; player.riding = null; }
   }
@@ -2196,6 +2203,15 @@ const sfx = (() => {
     g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t0 + dur);
     o.connect(g).connect(ctx.destination); o.start(ctx.currentTime + t0); o.stop(ctx.currentTime + t0 + dur + 0.05);
   }
+  function noise(dur, freq, vol) {   // 短いノイズ（足音・葉のこすれ）
+    if (!ctx) return;
+    const t = ctx.currentTime, len = Math.max(1, (ctx.sampleRate * dur) | 0), buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = 0.8;
+    const g = ctx.createGain(); g.gain.value = vol;
+    src.connect(f).connect(g).connect(ctx.destination); src.start(t);
+  }
   const PENTA = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.5];
   return {
     init,
@@ -2206,11 +2222,16 @@ const sfx = (() => {
     gold() { [0, 2, 4, 5, 7].forEach((n, k) => tone(PENTA[n], k * 0.07, 0.9, 0.09, 'triangle')); },
     restore() { [0, 2, 4, 7].forEach((n, k) => tone(PENTA[n] / 2, k * 0.09, 1.4, 0.1, 'triangle')); },
     fall() { tone(220, 0, 1.2, 0.06, 'sine'); tone(174.6, 0.15, 1.5, 0.05); },
-    jump(c) { if (!ctx) return; const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine';
-      o.frequency.setValueAtTime(240 + c * 200, ctx.currentTime); o.frequency.exponentialRampToValueAtTime(480 + c * 700, ctx.currentTime + 0.25);
-      g.gain.setValueAtTime(0.07, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.3);
-      o.connect(g).connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.35); },
-    land() { tone(90, 0, 0.25, 0.12, 'triangle'); },
+    // ジャンプ：「ぴょん」と上がる音
+    jump() { if (!ctx) return; const t = ctx.currentTime, o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'square';
+      o.frequency.setValueAtTime(330, t); o.frequency.exponentialRampToValueAtTime(990, t + 0.14);
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.06, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+      const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 2200;
+      o.connect(f).connect(g).connect(ctx.destination); o.start(t); o.stop(t + 0.25); noise(0.04, 1800, 0.08); },
+    // 着地：落ちた高さに応じた「とすっ」という音（地面・落ち葉の上）
+    land(v) { if (!ctx) return; const k = Math.min(1, v / 18); tone(110 - k * 40, 0, 0.18 + k * 0.2, 0.08 + k * 0.12, 'sine'); noise(0.08 + k * 0.12, 600 + (1 - k) * 600, 0.06 + k * 0.1); },
+    // 木登り：幹をつかむ「ざっ、ざっ」という音
+    climb() { noise(0.07, rand(900, 1500), 0.07); tone(rand(150, 190), 0, 0.06, 0.025, 'triangle'); },
     horn() { tone(415, 0, 0.5, 0.05, 'square'); tone(523, 0, 0.5, 0.04, 'square'); },
     crash() { tone(110, 0, 0.6, 0.2, 'sawtooth'); tone(70, 0.05, 0.8, 0.2, 'square'); },
   };
@@ -2295,12 +2316,12 @@ const bgm = (() => {
 // ---------------------------------------------------------------------------
 // ゲーム進行
 // ---------------------------------------------------------------------------
-let state = 'title', elapsed = 0, endTimer = 0;
+let state = 'title', elapsed = 0, endTimer = 0, lastDayToast = 0;
 const wind = { x: 0.4, z: -0.2, gust: 0, nextGust: 18 };
 let lastPhase = '', lightupToasted = -1, lastAlive = trees.length, lastLeafToasted = false;
 
 function resetGame() {
-  elapsed = 0; caught = 0; golds = 0; restored = 0; combo = 0; endTimer = 0; lastLeafToasted = false;
+  elapsed = 0; caught = 0; golds = 0; restored = 0; combo = 0; endTimer = 0; lastLeafToasted = false; goldSum = 0; lastDayToast = 0;
   player.pos.set(13.8, 0.12, 6); player.vy = 0; player.yaw = 0; player.pitch = -0.28; player.face = 0; player.charge = 0; player.climbing = null; player.riding = null; player.onGround = true;
   cars.forEach((c) => { if (!c.parked) { c.active = false; c.mesh.visible = false; } });
   for (let i = 0; i < FALL_MAX; i++) if (fActive[i]) freeFalling(i);
@@ -2308,7 +2329,7 @@ function resetGame() {
   groundIdx = 0; groundCount = 0;
   scatterInitialGround();
   trees.forEach((t, ti) => {
-    t.list.length = 0; t.cooldown = 0; t.acc = 0; t.dead = false;
+    t.list.length = 0; t.cooldown = 0; t.restoredDay = -1; t.acc = 0; t.dead = false;
     const keep = Math.floor(LEAVES * rand(0.9, 1.0)); // 見頃の状態からスタート
     for (let k = 0; k < keep; k++) t.list.push(k);
     t.ratio = t.list.length / LEAVES;
@@ -2338,7 +2359,7 @@ function restoreTree(t, ti) {
   const kind = t.orbKind;
   placeOrb(t, ti);   // 次に枯れかけたときは別の場所で光る
   while (t.list.length < LEAVES) t.list.push(t.list.length);
-  t.ratio = 1; t.dead = false; t.cooldown = 1.5;
+  t.ratio = 1; t.dead = false; t.cooldown = 1.5; t.restoredDay = Math.floor(elapsed / DAY_SEC);
   markTree(t);
   restored++;
   doBurst(t);
@@ -2347,8 +2368,10 @@ function restoreTree(t, ti) {
 }
 
 const _body = new THREE.Vector3();
+let lastUsedToast = -10, goldSum = 0;
 function updateTrees(dt) {
-  const rate = 2.6 * (1 + elapsed / 100) * (1 + wind.gust * 1.6); // 時間とともに散るのが早くなる
+  const rate = RATE_BASE * (1 + elapsed / RATE_T) * (1 + wind.gust * 1.6); // 時間とともに散るのが早くなる
+  const today = Math.floor(elapsed / DAY_SEC);
   const px = player.pos.x, pz = player.pos.z;
   const body = _body.set(px, player.pos.y + 0.9, pz);   // _v は葉の位置計算で上書きされるので別の変数を使う
   let total = 0, alive = 0;
@@ -2357,13 +2380,16 @@ function updateTrees(dt) {
     if (t.cooldown > 0) t.cooldown -= dt;
     // てっぺんに触れたら紅葉が戻る
     const dx = body.x - t.orb.x, dy = body.y - t.orb.y, dz = body.z - t.orb.z;
-    if (dx * dx + dy * dy + dz * dz < (t.orbKind === 'top' ? 2.6 : 1.8) ** 2 && t.cooldown <= 0 && t.ratio < RESTORE_AT) restoreTree(t, ti);
+    if (dx * dx + dy * dy + dz * dz < (t.orbKind === 'top' ? 2.6 : 1.8) ** 2 && t.cooldown <= 0 && t.ratio < RESTORE_AT) {
+      if (t.restoredDay === today) { if (elapsed - lastUsedToast > 2.5) { lastUsedToast = elapsed; toast('この木は今日はもうよみがえらせた。また明日'); } }
+      else restoreTree(t, ti);
+    }
 
     if (t.list.length) {
       // 木ごとにゆらぐ速さ＋ときどき一気に散る
       const wave = 0.5 + 0.5 * Math.sin(elapsed * t.rateFreq + t.ratePhase);
       t.acc += rate * (LEAVES / 300) * t.rateMul * (0.3 + 1.5 * wave * wave) * dt;
-      if (Math.random() < dt * 0.025) t.acc += rand(6, 30);
+      if (Math.random() < dt * 0.025) t.acc += rand(6, 30) * RATE_BASE / 2.6;
       const near = Math.abs(t.z - pz) < 70;
       while (t.acc >= 1 && t.list.length) { t.acc -= 1; removeLeaf(t, ti, near); }
     }
@@ -2373,6 +2399,7 @@ function updateTrees(dt) {
     // てっぺんの玉：枯れかけた木（触れるとよみがえる木）だけ点灯する。元気な木は消灯
     const r = t.ratio, pulse = 0.75 + 0.25 * Math.sin(elapsed * 3 + ti), blink = 0.55 + 0.45 * Math.sin(elapsed * 8 + ti);
     if (r >= RESTORE_AT) apexCol.set([0, 0, 0], ti * 3);
+    else if (t.restoredDay === today) apexCol.set([0.22, 0.22, 0.26], ti * 3);       // 灰色：今日はもうよみがえらせた
     else if (r < 0.3) apexCol.set([1 * blink, 0.22 * blink, 0.08 * blink], ti * 3);   // 赤く点滅：急いで
     else apexCol.set([1 * pulse, 0.82 * pulse, 0.35 * pulse], ti * 3);               // 金色に点灯：枯れはじめ
   }
@@ -2461,7 +2488,10 @@ function updateHUD(total, alive) {
   const d = dayLabel(elapsed);
   $('time').textContent = d.text;
   $('alive').textContent = alive;
-  $('ratio').textContent = `${(ratio * 100).toFixed(ratio < 0.1 ? 1 : 0)}%`;
+  $('ratio').textContent = `${(ratio * 100).toFixed(0)}%`;
+  $('alive').classList.toggle('danger', alive <= 10);
+  $('avg').textContent = `${elapsed > 0 ? Math.round(goldSum / elapsed * 100) : 100}%`;
+  $('left').textContent = `${Math.max(0, Math.ceil(GOAL_DAYS - elapsed / DAY_SEC))}日`;
   $('restored').textContent = restored;
   $('caught').textContent = caught;
   const ph = alive === 1 && total < 40 ? '最後の一葉' : phaseLabel(ratio);
@@ -2475,6 +2505,12 @@ function updateHUD(total, alive) {
   drawMinimap();
 }
 
+function rankOfClear(avg) {
+  if (avg >= 75) return 'いちょう並木の守り神';
+  if (avg >= 60) return '黄金の並木の名人';
+  if (avg >= 50) return '外苑の庭師';
+  return '並木の世話人';
+}
 function rankOf(days) {
   if (days < 1) return '通りすがりの散歩人';
   if (days < 2) return 'いちょう好き';
@@ -2489,12 +2525,18 @@ function gameOver(reason = 'leaves') {
   if (document.pointerLockElement) document.exitPointerLock();
   const days = elapsed / DAY_SEC;
   const fullDays = Math.floor(days), hours = Math.floor((days - fullDays) * 24);
-  $('overSub').textContent = reason === 'car' ? '車道で車にぶつかってしまった' : '最後の一葉が散りました';
-  $('overTitle').textContent = reason === 'car' ? '危ない！ 車にはねられた' : '並木に冬が来た';
-  $('result').innerHTML = `
+  const avg = elapsed > 0 ? Math.round(goldSum / elapsed * 100) : 0;
+  const clear = reason === 'clear';
+  $('overSub').textContent = clear ? 'いちょう祭りの7日間を守り切った！' : reason === 'car' ? '車道で車にぶつかってしまった' : '最後の一葉が散りました';
+  $('overTitle').textContent = clear ? '並木は最後まで黄金色' : reason === 'car' ? '危ない！ 車にはねられた' : '並木に冬が来た';
+  $('result').innerHTML = clear ? `
+    <div>7日間の平均の見頃（並木の葉）</div>
+    <div class="big">${avg}%</div>
+    <div>よみがえらせた木 <b>${restored}</b> 本 ／ つかんだ葉 <b>${caught}</b>（金の葉 ${golds}枚）</div>
+    <div class="rank">称号：${rankOfClear(avg)}</div>` : `
     <div>並木の秋を守った時間</div>
     <div class="big">${fullDays}日と${hours}時間</div>
-    <div>よみがえらせた木 <b>${restored}</b> 本 ／ つかんだ葉 <b>${caught}</b>（金の葉 ${golds}枚）</div>
+    <div>平均の見頃 <b>${avg}%</b> ／ よみがえらせた木 <b>${restored}</b> 本 ／ つかんだ葉 <b>${caught}</b></div>
     <div class="rank">称号：${rankOf(days)}</div>`;
   $('over').classList.remove('hidden');
   $('hud').classList.add('hidden');
@@ -2560,10 +2602,15 @@ function step(dt) {
     if (pileMat) pileMat.opacity = cover;
     trimGroundLeaves(cover);
     updateHUD(total, alive);
-    if (total === 0) {
+    const ratioNow = total / (trees.length * LEAVES);
+    goldSum += ratioNow * dt;
+    const day = Math.floor(elapsed / DAY_SEC);
+    if (day > lastDayToast && day < GOAL_DAYS) { lastDayToast = day; toast(day === GOAL_DAYS - 1 ? 'いちょう祭り 最終日！' : `いちょう祭り ${day + 1}日目　あと${GOAL_DAYS - day}日`); }
+    if (elapsed >= GOAL_DAYS * DAY_SEC) gameOver('clear');
+    else if (total === 0) {
       if (!lastLeafToasted) { lastLeafToasted = true; toast('最後の一葉が散った……', 3000); sfx.fall(); }
       endTimer += dt;
-      if (endTimer > 3.5) gameOver();
+      if (endTimer > 3.5) gameOver('winter');
     }
   } else if (state === 'title') {
     avatar.g.visible = false;
