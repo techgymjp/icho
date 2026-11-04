@@ -297,7 +297,7 @@ function pavementTexture() {
   g.fillStyle = '#55575b'; g.fillRect(0, 0, S, S);
   for (let i = 0; i < 14000; i++) { const v = Math.random(); g.fillStyle = `rgba(${v > .5 ? 255 : 0},${v > .5 ? 255 : 0},${v > .5 ? 255 : 0},${Math.random() * 0.09})`; g.fillRect(Math.random() * S, Math.random() * S, 2, 2); }
   const cols = ['#e9c23c', '#dcae22', '#f2d462', '#c99a1c'];
-  for (let i = 0; i < 2600; i++) {
+  for (let i = 0; i < 500; i++) {
     g.save(); g.translate(Math.random() * S, Math.random() * S); g.rotate(Math.random() * 6.28);
     g.fillStyle = cols[i % 4]; g.globalAlpha = 0.85;
     g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, 4 + Math.random() * 4, -2.4, -0.7); g.closePath(); g.fill(); g.restore();
@@ -513,10 +513,11 @@ const skylineWin = new THREE.MeshLambertMaterial({ map: windowTexture(false), em
   const glassT = new THREE.MeshPhongMaterial({ color: 0x7fa6c8, shininess: 120, specular: 0xbfd8ff });
   addBox(34, 110, 30, 165, 55, -40, glassT);
   addBox(26, 96, 26, 200, 48, -80, glassT);
+  addBox(30, 100, 26, 150, 50, R246.north + 30, glassT);  // 青山通り南側のガラスの高層ビル
   addBox(40, 48, 28, 150, 24, -8, lambert(0xe6e4df));
 }
 // 南西の入口：大きな石を積んだ石垣と、その上の大きな常緑樹。石垣の上に「明治神宮外苑」の看板。カーブする石畳の歩道と区の案内板
-mirrorX(() => {
+const buildCorner = (main) => {
   const rock = new THREE.MeshStandardMaterial({ color: 0x8e8f8a, roughness: 0.95, map: noiseTexture('#8f908b', 0.35, 128, 2500) });
   const X0 = EDGE + 1.5, X1 = EDGE + 30, Z = R246.south - 1.6;
   // 石垣（大小の切り石を積む）
@@ -535,6 +536,7 @@ mirrorX(() => {
   // 石畳の歩道（並木の東側歩道へカーブしてつながる）
   const tileTex = noiseTexture('#a7a59f', 0.2, 128, 3000); tileTex.repeat.set(6, 3);
   addPlane(16, 7, WALK_IN + 2.5, R246.south - 1, 0.13, lambert(0xffffff, { map: tileTex }));
+  if (!main) return;
   // 港区の案内板（青）
   const c = document.createElement('canvas'); c.width = 256; c.height = 512; const g = c.getContext('2d');
   g.fillStyle = '#1d4f9a'; g.fillRect(0, 0, 256, 512); g.fillStyle = '#fff'; g.font = 'bold 26px sans-serif';
@@ -551,7 +553,9 @@ mirrorX(() => {
   const board = new THREE.Mesh(new THREE.PlaneGeometry(10, 1.6), lambert(0xffffff, { map: t2 }));
   board.position.set(X0 + 6, 2.9, Z + 0.62); board.rotation.y = Math.PI; scene.add(board);
   addBox(10.2, 1.7, 0.1, X0 + 6, 2.9, Z + 0.55, lambert(0x2a2a2a));
-});
+};
+mirrorX(() => buildCorner(true));  // 南西の角（看板つき）
+buildCorner(false);                // 南東の角
 // 横道の東端：南北の道路、角のシェイクシャック、北側の白い曲面屋根の建物
 {
   const EX = EDGE + SIDE_LEN, roadX = EX + 9;
@@ -587,16 +591,26 @@ mirrorX(() => {
   dome.scale.set(1, 0.42, 0.75); dome.position.set(EX - 10, 6, SIDE_Z - 40); dome.castShadow = true; scene.add(dome);
   addBox(52, 6, 40, EX - 10, 3, SIDE_Z - 40, lambert(0xd9d7d0));
 }
+// 都道414号の標識（並木の車道の入口）
+{
+  const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+  g.fillStyle = '#1f5fbf'; g.beginPath(); for (let i = 0; i < 6; i++) { const a = Math.PI / 6 + i * Math.PI / 3; g.lineTo(64 + Math.cos(a) * 60, 64 + Math.sin(a) * 60); } g.closePath(); g.fill();
+  g.strokeStyle = '#fff'; g.lineWidth = 5; g.stroke(); g.fillStyle = '#fff'; g.font = 'bold 48px sans-serif'; g.textAlign = 'center'; g.fillText('414', 64, 82); g.font = '14px sans-serif'; g.fillText('都道', 64, 34);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.9), new THREE.MeshLambertMaterial({ map: t, transparent: true, side: THREE.DoubleSide }));
+  m.position.set(-(ROAD_HW + 0.6), 2.8, 4); scene.add(m);
+  addBox(0.07, 3.2, 0.07, -(ROAD_HW + 0.6), 1.6, 4.05, lambert(0x9a9da0));
+}
 // 伊藤忠ビル（並木の入口・西側の角に建つ白い高層オフィスビル）
 {
   const X = -72, Z = -20, W = 42, D = 30, H = 100;
-  const white = lambert(0xeeeeea), band = lambert(0x50606f);
+  const white = lambert(0xc9ae94), band = lambert(0x4e5560);
   addBox(W, H, D, X, H / 2, Z, white);
   for (let y = 8; y < H - 4; y += 4.4) {
     addBox(W * 0.86, 1.5, 0.2, X - 2, y, Z + D / 2 + 0.1, band);    // 青山通り側の水平の窓帯
     addBox(0.2, 1.5, D * 0.8, X + W / 2 + 0.1, y, Z, band);           // 並木側
   }
-  addBox(6, H + 6, 6, X - W / 2 + 3, (H + 6) / 2, Z + D / 2 - 3, white); // 階段室のコア
+  addBox(14, H + 8, D, X - W / 2 - 7, (H + 8) / 2, Z, lambert(0xd8c9b8)); // 明るい色の高い棟
   addBox(W * 0.5, 5, 0.3, X - 4, H - 3, Z + D / 2 + 0.2, lambert(0xffffff)); // 屋上のサイン
   addBox(W + 12, 6, D + 12, X, 3, Z, lambert(0xcfcac0)); // 低層部
 }
@@ -708,16 +722,25 @@ const fountain = (() => {
     g.position.set(cx, 0, cz); g.rotation.y = rot; scene.add(g);
   }
 }
-// 並木の西側・青山通り寄りのカフェ：外側の並木の奥に建つ2階建てのレストラン＆カフェ。前庭がテラス席
+// 並木の西側・入口すぐのロイヤルガーデンカフェ：白い2階建て、2階のバルコニーに木の格子、大きな窓。前庭は植栽とテラス席
 mirrorX(() => {
-  const beige = lambert(0xd9c9ad), wood = lambert(0x5a3f2a), glass = new THREE.MeshPhongMaterial({ color: 0x40505a, shininess: 90 }), white = lambert(0xf1ede4), dark = lambert(0x2b2b2b), canvasM = lambert(0xece4d2, { side: THREE.DoubleSide });
+  const beige = lambert(0xf0eee8), wood = lambert(0x5a3f2a), glass = new THREE.MeshPhongMaterial({ color: 0x40505a, shininess: 90 }), white = lambert(0xf1ede4), dark = lambert(0x2b2b2b), canvasM = lambert(0xece4d2, { side: THREE.DoubleSide });
   const X0 = EDGE + 6, X1 = EDGE + 20, L = CAFE_Z0 - CAFE_Z1, ZM = (CAFE_Z0 + CAFE_Z1) / 2;
   addBox(X1 - X0, 3.6, L, (X0 + X1) / 2, 1.8, ZM, glass);                  // 1階（ガラス張り）
   addBox(X1 - X0 + 1.5, 0.4, L + 1, (X0 + X1) / 2 - 0.7, 3.8, ZM, white);  // 庇
   addBox(X1 - X0 - 1, 3.2, L - 4, (X0 + X1) / 2 + 0.5, 5.6, ZM, beige);    // 2階
   addBox(X1 - X0 + 0.6, 0.5, L - 3, (X0 + X1) / 2 + 0.5, 7.45, ZM, white); // 屋根
   for (let z = CAFE_Z1 + 2; z < CAFE_Z0 - 1; z += 3.2) { addBox(0.2, 3.6, 0.25, X0 - 0.05, 1.8, z, wood); addBox(0.15, 1.6, 2.2, X0 + 0.45, 5.5, z + 1.6, glass); }
-  addBox(0.6, 0.6, L, X0 - 0.3, 4.3, ZM, wood);                             // 2階テラスの手すり
+  // 2階バルコニーの木の格子
+  for (let z = CAFE_Z1 + 1; z < CAFE_Z0 - 0.5; z += 0.45) addBox(0.06, 0.9, 0.08, X0 - 0.3, 4.55, z, wood);
+  addBox(0.12, 0.1, L, X0 - 0.3, 5.0, ZM, wood);
+  // 庇の看板
+  const sc = document.createElement('canvas'); sc.width = 512; sc.height = 64; const sg = sc.getContext('2d');
+  sg.fillStyle = '#f4f2ec'; sg.fillRect(0, 0, 512, 64); sg.fillStyle = '#6b5a45'; sg.font = 'italic bold 40px serif'; sg.textAlign = 'center'; sg.fillText('Royal Garden Cafe', 256, 46);
+  const stx = new THREE.CanvasTexture(sc); stx.colorSpace = THREE.SRGBColorSpace;
+  const sgn = new THREE.Mesh(new THREE.PlaneGeometry(8, 1), lambert(0xffffff, { map: stx })); sgn.rotation.y = -Math.PI / 2; sgn.position.set(X0 - 0.76, 3.8, CAFE_Z0 - 8); scene.add(sgn);
+  // 前庭のヤシと低木
+  for (const z of [CAFE_Z0 - 4, CAFE_Z0 - 20, CAFE_Z0 - 36]) { addBox(0.25, 3, 0.25, EDGE + 4.2, 1.5, z, wood); const pf = new THREE.Mesh(new THREE.SphereGeometry(1.3, 8, 5), lambert(0x4f7a3a)); pf.scale.y = 0.45; pf.position.set(EDGE + 4.2, 3.1, z); scene.add(pf); }
   // 前庭のテラス席（パラソル・テーブル・椅子）と植え込み
   for (let i = 0; i < 9; i++) {
     const x = EDGE + 2.6 + (i % 2) * 1.5, z = CAFE_Z0 - 3 - i * 5.2;
@@ -761,6 +784,49 @@ mirrorX(() => {
   pts.forEach(([x, z], i) => { im.setMatrixAt(i, _tmpM.makeTranslation(x, 0.12, z)); OBST.push({ x, z, r: 0.32, h: 0.9 }); });
   im.castShadow = true; scene.add(im);
 }
+// 落ち葉の絨毯：見頃を過ぎた並木は歩道も車道の端も黄色で敷き詰められる。
+// 木が葉を落としきっていくにつれ、絨毯はまだらに薄れて路面の地肌が見えてくる
+let pileMat = null;
+const CARPET_U = { uCover: { value: 1 }, uMask: { value: null } };
+{
+  const S = 512, c = document.createElement('canvas'); c.width = c.height = S;
+  const g = c.getContext('2d');
+  g.fillStyle = '#d9a91f'; g.fillRect(0, 0, S, S);
+  const cols = ['#f0c93a', '#e2b52a', '#f6da66', '#cf9a1a', '#e8bf30', '#b98a1c'];
+  for (let i = 0; i < 9000; i++) {
+    g.save(); g.translate(Math.random() * S, Math.random() * S); g.rotate(Math.random() * 6.28);
+    g.fillStyle = cols[i % cols.length];
+    g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, 5 + Math.random() * 6, -2.4, -0.7); g.closePath(); g.fill(); g.restore();
+  }
+  const tex = new THREE.CanvasTexture(c); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  // まだらに消えていくためのマスク（ぼかしたノイズ）
+  const M = 256, mc = document.createElement('canvas'); mc.width = mc.height = M;
+  const mg = mc.getContext('2d'); mg.fillStyle = '#808080'; mg.fillRect(0, 0, M, M);
+  for (let i = 0; i < 260; i++) { const r = rand(8, 40), x = Math.random() * M, y = Math.random() * M, v = (Math.random() * 255) | 0;
+    for (const [ox, oy] of [[0, 0], [M, 0], [-M, 0], [0, M], [0, -M]]) { const gr = mg.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, r); gr.addColorStop(0, `rgba(${v},${v},${v},0.7)`); gr.addColorStop(1, `rgba(${v},${v},${v},0)`); mg.fillStyle = gr; mg.fillRect(x + ox - r, y + oy - r, r * 2, r * 2); } }
+  const mask = new THREE.CanvasTexture(mc); mask.wrapS = mask.wrapT = THREE.RepeatWrapping;
+  CARPET_U.uMask.value = mask;
+  const mat = new THREE.MeshLambertMaterial({ map: tex, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 });
+  mat.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, CARPET_U);
+    sh.fragmentShader = 'uniform float uCover; uniform sampler2D uMask;\n' + sh.fragmentShader.replace('#include <map_fragment>', `
+      float mk = texture2D(uMask, vMapUv * 0.09).r * 0.75 + texture2D(uMask, vMapUv * 0.37).r * 0.25;
+      if (mk > uCover * 1.25 - 0.12) discard;
+      #include <map_fragment>`);
+  };
+  const strip = (w, len, x, z, y, rep) => {
+    const t = tex.clone(); t.repeat.set(w / 3, len / 3); t.needsUpdate = true;
+    const m = mat.clone(); m.map = t; m.onBeforeCompile = mat.onBeforeCompile;
+    const pl = new THREE.Mesh(new THREE.PlaneGeometry(w, len), m); pl.rotation.x = -Math.PI / 2; pl.position.set(x, y, z); pl.receiveShadow = true; scene.add(pl);
+  };
+  for (const sd of [-1, 1]) {
+    strip(WALK_OUT - WALK_IN, AVE_LEN, sd * (WALK_IN + WALK_OUT) / 2, AVE_MID, 0.125);  // 歩道
+    strip(WALK_IN - ROAD_HW - 0.4, AVE_LEN, sd * (ROAD_HW + WALK_IN + 0.4) / 2, AVE_MID, 0.126); // 車道側植樹帯
+    strip(EDGE - WALK_OUT - 0.3, AVE_LEN, sd * (WALK_OUT + 0.3 + EDGE) / 2, AVE_MID, 0.126);     // 外側植樹帯
+    strip(3.2, AVE_LEN, sd * (ROAD_HW - 1.6), AVE_MID, 0.006);                                   // 車道の端（駐車帯）
+  }
+  strip(SIDE_LEN, (SIDE_ROW + 2) * 2, EDGE + SIDE_LEN / 2, SIDE_Z, 0.125);                        // 横道
+}
 // 地面に溜まった落ち葉（デカール：柵の足もと・ベンチの下・縁石沿い）
 {
   const c = document.createElement('canvas'); c.width = c.height = 256;
@@ -774,6 +840,7 @@ mirrorX(() => {
   }
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
   const mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+  pileMat = mat;
   const spots = [];
   for (const fx of FENCE_X) for (let z = AVE_START - 3; z > AVE_END; z -= rand(3, 7)) spots.push([fx + rand(-0.3, 0.3), z, rand(1.4, 2.6), rand(0, 6.28)]);
   for (const sd of [-1, 1]) for (let z = AVE_START - 3; z > AVE_END; z -= rand(5, 10)) spots.push([sd * (ROAD_HW - 0.4), z, rand(1.5, 3), 0]);
@@ -1016,13 +1083,16 @@ function makeBranches(t) {
   }
 }
 // 枝の上の一点（葉を付ける場所）
-function pointOnBranch(t, out) {
-  // 長い枝ほど葉が多い
+const _bp = new THREE.Vector3();
+function pointOnBranch(t, out, base = _bp) {
+  // 長い枝ほど葉が多い。葉は枝から短い小枝の先に付く（枝から離れすぎない）
   let b;
   for (let k = 0; k < 4; k++) { b = t.br[(Math.random() * t.br.length) | 0]; if (Math.random() < b.len / (t.R * 0.9)) break; }
-  const tb = Math.pow(rand(0.25, 1), 0.7);
-  const d = b.len * tb, spread = 0.25 + 0.55 * tb;
-  out.set(b.x + b.dx * d + rand(-spread, spread), b.y + b.dy * d + rand(-spread, spread) * 0.7, b.z + b.dz * d + rand(-spread, spread));
+  const tb = Math.pow(rand(0.3, 1), 0.7);
+  const d = b.len * tb;
+  base.set(b.x + b.dx * d, b.y + b.dy * d, b.z + b.dz * d);
+  const tw = rand(0.12, 0.2 + 0.3 * tb), ta = rand(0, 6.28);
+  out.set(base.x + Math.cos(ta) * tw, base.y + rand(0.02, 0.25), base.z + Math.sin(ta) * tw);
   return b;
 }
 for (let r = 0; r < ROW_X.length; r++) for (let j = 0; j < PER_ROW; j++) {
@@ -1116,11 +1186,13 @@ function leafOrient(b, q) {
   return q.setFromEuler(_e);
 }
 const _lp = new THREE.Vector3();
+const twigBase = new Float32Array(N_TREE_LEAVES * 3);
 trees.forEach((t) => {
   makeBranches(t);
   for (let k = 0; k < LEAVES; k++) {
     const i = t.start + k;
     const b = pointOnBranch(t, _lp);
+    twigBase.set([_bp.x, _bp.y, _bp.z], i * 3);
     lPos[i * 3] = _lp.x; lPos[i * 3 + 1] = _lp.y; lPos[i * 3 + 2] = _lp.z;
     leafOrient(b, _q);
     lQuat.set([_q.x, _q.y, _q.z, _q.w], i * 4);
@@ -1155,6 +1227,19 @@ trees.forEach((t, ti) => {
   });
 });
 scene.add(trunks, branches, cones);
+// 小枝：枝から葉の房へ。葉が散っても小枝は残る
+{
+  const twigs = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.012, 0.022, 1, 4).translate(0, 0.5, 0), barkMat, N_TREE_LEAVES);
+  const up = new THREE.Vector3(0, 1, 0), dir = new THREE.Vector3();
+  for (let i = 0; i < N_TREE_LEAVES; i++) {
+    dir.set(lPos[i * 3] - twigBase[i * 3], lPos[i * 3 + 1] - twigBase[i * 3 + 1], lPos[i * 3 + 2] - twigBase[i * 3 + 2]);
+    const l = dir.length();
+    _q.setFromUnitVectors(up, dir.normalize());
+    twigs.setMatrixAt(i, _m.compose(_v.set(twigBase[i * 3], twigBase[i * 3 + 1], twigBase[i * 3 + 2]), _q, _s.set(1, l, 1)));
+  }
+  twigs.frustumCulled = false;
+  scene.add(twigs);
+}
 function updateCone(ti) {
   const t = trees[ti];
   const r = t.ratio;
@@ -1308,9 +1393,10 @@ groundMesh.receiveShadow = true;
 groundMesh.frustumCulled = false;
 for (let i = 0; i < GROUND_MAX; i++) { groundMesh.setMatrixAt(i, ZERO); groundMesh.setColorAt(i, _c.set(1, 1, 1)); }
 scene.add(groundMesh);
-let groundIdx = 0;
+let groundIdx = 0, groundCount = 0;
 function addGroundLeaf(x, z, scale = rand(0.2, 0.3), fullUpload = false) {
   const i = groundIdx; groundIdx = (groundIdx + 1) % GROUND_MAX;
+  groundCount = Math.min(GROUND_MAX, groundCount + 1);
   const y = groundY(x, z) + 0.012 + Math.random() * 0.02;
   _q.setFromEuler(_e.set(-Math.PI / 2 + rand(-0.25, 0.25), rand(-0.25, 0.25), rand(0, 6.28)));
   _m.compose(_v.set(x, y, z), _q, _s.set(scale, scale, scale));
@@ -1323,9 +1409,21 @@ function addGroundLeaf(x, z, scale = rand(0.2, 0.3), fullUpload = false) {
     groundMesh.instanceColor.needsUpdate = true;
   }
 }
+// 絨毯が薄れるのに合わせて、古い落ち葉から片付いていく
+function trimGroundLeaves(cover) {
+  const limit = Math.floor(GROUND_MAX * (0.12 + 0.88 * cover));
+  let n = 0;
+  while (groundCount > limit && n < 300) {
+    const i = (groundIdx - groundCount + GROUND_MAX) % GROUND_MAX;
+    groundMesh.setMatrixAt(i, ZERO);
+    groundMesh.instanceMatrix.addUpdateRange(i * 16, 16);
+    groundCount--; n++;
+  }
+  if (n) groundMesh.instanceMatrix.needsUpdate = true;
+}
 function scatterInitialGround() {
   // 歩道は黄金の絨毯、植樹帯にも、車道は端に寄った落ち葉
-  for (let k = 0; k < 26000; k++) {
+  for (let k = 0; k < 40000; k++) {
     const sd = Math.random() < 0.5 ? -1 : 1, r = Math.random();
     const x = sd * (r < 0.62 ? rand(WALK_IN, WALK_OUT) : r < 0.82 ? rand(ROAD_HW, WALK_IN) : r < 0.92 ? rand(WALK_OUT, EDGE) : rand(5.5, ROAD_HW));
     addGroundLeaf(x, rand(AVE_END, AVE_START), undefined, true);
@@ -2036,11 +2134,11 @@ function resetGame() {
   cars.forEach((c) => { if (!c.parked) { c.active = false; c.mesh.visible = false; } });
   for (let i = 0; i < FALL_MAX; i++) if (fActive[i]) freeFalling(i);
   for (let i = 0; i < GROUND_MAX; i++) groundMesh.setMatrixAt(i, ZERO);
-  groundIdx = 0;
+  groundIdx = 0; groundCount = 0;
   scatterInitialGround();
   trees.forEach((t, ti) => {
     t.list.length = 0; t.growList = null; t.cooldown = 0; t.acc = 0; t.dead = false;
-    const keep = Math.floor(LEAVES * rand(0.6, 1.0)); // 散り具合はまちまち
+    const keep = Math.floor(LEAVES * rand(0.9, 1.0)); // 見頃の状態からスタート
     for (let k = 0; k < LEAVES; k++) {
       const i = t.start + k;
       if (k < keep) { attached[i] = 1; t.list.push(i); } else attached[i] = 0;
@@ -2147,7 +2245,7 @@ function updateFalling(dt) {
       const flutter = Math.sin(ph) * 0.9;
       fPos[o] += (wind.x * (1 + wind.gust * 3) + Math.cos(ph * 0.7) * 0.6) * dt;
       fPos[o + 2] += (wind.z * (1 + wind.gust * 3) + flutter * 0.6) * dt;
-      fPos[o + 1] -= (fSpeed[i] * (0.75 + 0.45 * Math.abs(Math.sin(ph))) - wind.gust * 0.4) * dt;
+      fPos[o + 1] -= Math.max(0.55, fSpeed[i] * (0.75 + 0.45 * Math.abs(Math.sin(ph))) - wind.gust * 0.3) * dt; // 散った葉は必ず重力で落ちる
       for (let k = 0; k < 3; k++) fRot[o + k] += fSpin[o + k] * dt;
       const gy = groundY(fPos[o], fPos[o + 2]);
       if (fPos[o + 1] <= gy + 0.03) {
@@ -2303,6 +2401,10 @@ function step(dt) {
     const sky = updateSky(hour);
     if (sky.lightUp > 0.5 && lightupToasted !== Math.floor(elapsed / DAY_SEC)) { lightupToasted = Math.floor(elapsed / DAY_SEC); toast('夜のライトアップが始まった'); }
     updatePeople(dt, total / (trees.length * LEAVES), hour);
+    const cover = smooth(0.06, 0.88, total / (trees.length * LEAVES));
+    CARPET_U.uCover.value = cover;
+    if (pileMat) pileMat.opacity = cover;
+    trimGroundLeaves(cover);
     updateHUD(total, alive);
     if (total === 0) {
       if (!lastLeafToasted) { lastLeafToasted = true; toast('最後の一葉が散った……', 3000); sfx.fall(); }
