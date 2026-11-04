@@ -2441,7 +2441,7 @@ function updateTrees(dt) {
     // てっぺんの玉：枯れかけた木（触れるとよみがえる木）だけ点灯する。元気な木は消灯
     const r = t.ratio, pulse = 0.75 + 0.25 * Math.sin(elapsed * 3 + ti), blink = 0.55 + 0.45 * Math.sin(elapsed * 8 + ti);
     if (r >= RESTORE_AT) apexCol.set([0, 0, 0], ti * 3);
-    else if (today - t.restoredDay < REVIVE_DAYS) apexCol.set([0.22, 0.22, 0.26], ti * 3);   // 灰色：よみがえらせてから2日たっていない
+    else if (today - t.restoredDay < REVIVE_DAYS) apexCol.set([0, 0, 0], ti * 3);   // 消灯：よみがえらせてから2日たっていない（触れても戻らないので光らせない）
     else if (r < 0.3) apexCol.set([1 * blink, 0.22 * blink, 0.08 * blink], ti * 3);   // 赤く点滅：急いで
     else apexCol.set([1 * pulse, 0.82 * pulse, 0.35 * pulse], ti * 3);               // 金色に点灯：枯れはじめ
   }
