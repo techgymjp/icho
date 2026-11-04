@@ -74,3 +74,6 @@ body.touch #touchUI { display: block; }
 .story { font-family: "Shippori Mincho", serif; font-size: 20px; letter-spacing: .15em; margin: 6px 0 18px; }
 #stats .row span#alive.danger { color: #ff7a5a; }
 .goal { font-size: 14px; color: #ffe27a; margin: -8px 0 16px; }
+#result .big small { font-size: 16px; color: #f2e6c4; }
+#result .sub2 { font-size: 17px; margin-bottom: 6px; }
+#result .sub2 b { color: #ffd84a; font-size: 22px; }

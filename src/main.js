@@ -2532,7 +2532,6 @@ function updateHUD(total, alive) {
   $('alive').textContent = alive;
   $('ratio').textContent = `${(ratio * 100).toFixed(0)}%`;
   $('alive').classList.toggle('danger', alive <= 10);
-  $('avg').textContent = `${elapsed > 0 ? Math.round(goldSum / elapsed * 100) : 100}%`;
   $('left').textContent = `${Math.max(0, Math.ceil(GOAL_DAYS - elapsed / DAY_SEC))}日`;
   $('restored').textContent = restored;
   $('caught').textContent = caught;
@@ -2547,10 +2546,10 @@ function updateHUD(total, alive) {
   drawMinimap();
 }
 
-function rankOfClear(avg) {
-  if (avg >= 75) return 'いちょう並木の守り神';
-  if (avg >= 60) return '黄金の並木の名人';
-  if (avg >= 50) return '外苑の庭師';
+function rankOfClear(n) {   // n：7日目の終わりに葉が残っていた木の本数
+  if (n >= 60) return 'いちょう並木の守り神';
+  if (n >= 30) return '黄金の並木の名人';
+  if (n >= 10) return '外苑の庭師';
   return '並木の世話人';
 }
 function rankOf(days) {
@@ -2567,18 +2566,24 @@ function gameOver(reason = 'leaves') {
   if (document.pointerLockElement) document.exitPointerLock();
   const days = elapsed / DAY_SEC;
   const fullDays = Math.floor(days), hours = Math.floor((days - fullDays) * 24);
-  const avg = elapsed > 0 ? Math.round(goldSum / elapsed * 100) : 0;
+  // スコア：①葉が残っていた木の本数（メイン）と ②残った葉の量（並木全体で満開の何%）
+  const leftTrees = trees.filter((t) => t.list.length > 0).length;
+  const leftLeaves = trees.reduce((a, t) => a + t.list.length, 0) / (trees.length * LEAVES) * 100;
+  const leftPct = leftLeaves > 0 && leftLeaves < 1 ? leftLeaves.toFixed(1) : Math.round(leftLeaves);
+  window.__ichoResult = { reason, leftTrees, leftPct: +leftPct, days: +days.toFixed(2) };
   const clear = reason === 'clear';
   $('overSub').textContent = clear ? 'いちょう祭りの7日間を守り切った！' : reason === 'car' ? '車道で車にぶつかってしまった' : '最後の一葉が散りました';
   $('overTitle').textContent = clear ? '並木は最後まで黄金色' : reason === 'car' ? '危ない！ 車にはねられた' : '並木に冬が来た';
   $('result').innerHTML = clear ? `
-    <div>7日間の平均の見頃（並木の葉）</div>
-    <div class="big">${avg}%</div>
+    <div>7日目の終わりに、葉が残っていた木</div>
+    <div class="big">${leftTrees}本<small> ／146本</small></div>
+    <div class="sub2">残った葉　<b>${leftPct}%</b>（並木全体で、満開のときの何%か）</div>
     <div>よみがえらせた木 <b>${restored}</b> 本 ／ つかんだ葉 <b>${caught}</b>（金の葉 ${golds}枚）</div>
-    <div class="rank">称号：${rankOfClear(avg)}</div>` : `
+    <div class="rank">称号：${rankOfClear(leftTrees)}</div>` : `
     <div>並木の秋を守った時間</div>
     <div class="big">${fullDays}日と${hours}時間</div>
-    <div>平均の見頃 <b>${avg}%</b> ／ よみがえらせた木 <b>${restored}</b> 本 ／ つかんだ葉 <b>${caught}</b></div>
+    <div>葉が残っていた木 <b>${leftTrees}本</b> ／ 残った葉 <b>${leftPct}%</b></div>
+    <div>よみがえらせた木 <b>${restored}</b> 本 ／ つかんだ葉 <b>${caught}</b></div>
     <div class="rank">称号：${rankOf(days)}</div>`;
   $('over').classList.remove('hidden');
   $('hud').classList.add('hidden');
