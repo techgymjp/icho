@@ -63,3 +63,6 @@ body.touch #touchUI { display: block; }
   h1 { font-size: 28px; margin: 4px 0 6px; }
   .story, .keys { font-size: 12px; line-height: 1.6; margin-bottom: 8px; }
 }
+.btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; align-items: center; }
+.btn2 { font-family: "Shippori Mincho", serif; font-size: 16px; font-weight: 700; padding: 11px 24px; border-radius: 999px; color: #ffe27a; text-decoration: none; border: 1px solid rgba(255,216,74,.6); background: rgba(0,0,0,.2); }
+.btn2:hover { background: rgba(255,216,74,.15); }

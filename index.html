@@ -28,11 +28,11 @@
     <div class="row"><span class="lbl">つかんだ葉</span><span id="caught">0</span></div>
     <div id="phase">見頃</div>
   </div>
-  <div id="climb" class="hidden">木登り中（W:登る / S:降りる / Space:幹を蹴ってジャンプ）</div>
-  <div id="gaugeWrap"><div class="lbl">ジャンプ力（Space長押しでためる）</div><div id="gauge"><div id="gaugeFill"></div></div></div>
+  <div id="climb" class="hidden">木登り中（幹へ進むと登る・離れる方向で降りる / Space:幹を蹴ってジャンプ）</div>
+  <div id="gaugeWrap"><div class="lbl">ジャンプ（Space：押し続けるほど高く上がる）</div><div id="gauge"><div id="gaugeFill"></div></div></div>
   <canvas id="minimap" width="96" height="300"></canvas>
   <div id="toast"></div>
-  <div id="hint">Spaceを長くためるほど高く跳べる。MAXならイチョウのてっぺんへ！</div>
+  <div id="hint">Spaceで即ジャンプ。押し続けるほど高く上がり、イチョウのてっぺんまで届く！</div>
   <div id="touchUI">
     <div id="stick"><div id="knob"></div></div>
     <button id="btnJump">ジャンプ</button>
@@ -51,15 +51,10 @@
       すべての木が葉を落としきったら、冬が来る——ゲームオーバー。<br>
       車道には外車がひっきりなしに走っている。<b>車にぶつかってもゲームオーバー。</b>
     </p>
-    <ul class="keys">
-      <li><kbd>W A S D</kbd> / <kbd>矢印</kbd> 歩く　<kbd>Shift</kbd> 走る</li>
-      <li><kbd>Space</kbd> 長押しでジャンプ力をためる（長いほど高く、MAXで木のてっぺんへ）</li>
-      <li>幹に向かって <kbd>W</kbd> で木登り。木の上や車の屋根にも乗れて、そこからジャンプもできる</li>
-      <li><kbd>マウス</kbd> 見回す　<kbd>クリック</kbd> 舞う葉をつかむ</li>
-      <li>1分で1日が過ぎる。葉が多いほど、昼間ほど、遊歩道はにぎわう</li>
-      <li>右のミニマップで、葉の少ない木（赤）を探そう</li>
-    </ul>
-    <button id="startBtn">並木を歩きはじめる</button>
+    <div class="btns">
+      <button id="startBtn">並木を歩きはじめる</button>
+      <a class="btn2" href="howto.html">遊び方</a>
+    </div>
     <div class="note">落ち葉が地面に着く前につかむと、願いが叶うとも言われています。</div>
   </div>
 </div>
@@ -78,7 +73,10 @@
     <div class="sub" id="overSub">最後の一葉が散りました</div>
     <h2 id="overTitle">並木に冬が来た</h2>
     <div id="result"></div>
-    <button id="retryBtn">もう一度、秋へ</button>
+    <div class="btns">
+      <button id="retryBtn">もう一度、秋へ</button>
+      <a class="btn2" href="howto.html">遊び方</a>
+    </div>
   </div>
 </div>
 
