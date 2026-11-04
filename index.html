@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%F0%9F%8D%82%3C/text%3E%3C/svg%3E">
 <title>外苑いちょう並木　最後の一葉</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@500;700&display=swap" rel="stylesheet">
@@ -20,6 +21,7 @@
 <!-- HUD -->
 <div id="hud" class="hidden">
   <div id="crosshair"></div>
+  <div id="fps">-- fps</div>
   <div id="stats">
     <div class="row"><span class="lbl">いちょう祭り</span><span id="time">0:00</span></div>
     <div class="row"><span class="lbl">のこり</span><span id="left">7日</span></div>
@@ -30,7 +32,7 @@
     <div id="phase">見頃</div>
   </div>
   <div id="climb" class="hidden">木登り中（幹へ進むと登る・離れる方向で降りる / Space:幹を蹴ってジャンプ）</div>
-  <div id="gaugeWrap"><div class="lbl">ジャンプ（Space：押し続けるほど高く上がる）</div><div id="gauge"><div id="gaugeFill"></div></div></div>
+  <div id="gaugeWrap"><div class="lbl" id="gaugeLbl">ジャンプ（Space：押し続けるほど高く上がる）</div><div id="gauge"><div id="gaugeFill"></div></div></div>
   <canvas id="minimap" width="96" height="300"></canvas>
   <button id="bgmBtn" class="bgmBtn" title="BGMの切り替え（M）">♪ BGM オン（M）</button>
   <div id="toast"></div>

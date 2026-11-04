@@ -1345,7 +1345,7 @@ const leafMeshes = TPL.map((T) => T.stages.map((S) => ['near', 'far'].map((k) =>
 })));
 TPL.forEach((T, vi) => { let n = 0; trees.forEach((t) => { if (t.variant === vi) skelMeshes[vi].setMatrixAt(n++, t.mat); }); skelMeshes[vi].count = n; });
 // 葉の量の段階・距離が変わったら並べ直す
-const LOD_FAR = 70;
+let LOD_FAR = LOW ? 45 : 70;
 let instDirty = true, instTimer = 0;
 function updateLOD(dt) {
   instTimer -= dt;
@@ -2063,12 +2063,19 @@ addEventListener('mouseup', () => {
 
 // タッチ
 const isTouch = matchMedia('(pointer: coarse)').matches;
-if (isTouch) document.body.classList.add('touch');
+if (isTouch) {
+  document.body.classList.add('touch');
+  // スマホではキーボードの説明を出さない
+  $('gaugeLbl').textContent = 'ジャンプ（ボタンを押し続けるほど高く上がる）';
+  $('climb').textContent = '木登り中（スティックを幹へ倒すと登る・離れる方向で降りる／ジャンプで幹を蹴る）';
+  $('hint').textContent = '枯れかけた木には光る玉が出る。触れるとよみがえる！';
+}
 const touch = { mx: 0, my: 0, stickId: null, lookId: null, lx: 0, ly: 0, moved: 0, sx: 0, sy: 0 };
 const stick = $('stick'), knob = $('knob');
 canvas.addEventListener('touchstart', (e) => {
   for (const t of e.changedTouches) {
-    if (t.clientX < innerWidth * 0.4 && touch.stickId === null) {
+    const sr = stick.getBoundingClientRect(), scx = sr.left + sr.width / 2, scy = sr.top + sr.height / 2;
+    if (Math.hypot(t.clientX - scx, t.clientY - scy) < sr.width * 0.95 && touch.stickId === null) {   // スティックの周りだけスティックとして反応
       touch.stickId = t.identifier;
       const r = stick.getBoundingClientRect(); touch.sx = r.left + r.width / 2; touch.sy = r.top + r.height / 2;
     } else if (touch.lookId === null) { touch.lookId = t.identifier; touch.lx = t.clientX; touch.ly = t.clientY; touch.moved = 0; }
@@ -2090,15 +2097,27 @@ canvas.addEventListener('touchmove', (e) => {
   }
   e.preventDefault();
 }, { passive: false });
-canvas.addEventListener('touchend', (e) => {
+function touchEnd(e, cancelled) {
   for (const t of e.changedTouches) {
     if (t.identifier === touch.stickId) { touch.stickId = null; touch.mx = touch.my = 0; knob.style.transform = ''; }
-    else if (t.identifier === touch.lookId) { if (touch.moved < 10 && state === 'play') tryCatch(); touch.lookId = null; }
+    else if (t.identifier === touch.lookId) { if (!cancelled && touch.moved < 10 && state === 'play') tryCatch(); touch.lookId = null; }
   }
-});
+}
+canvas.addEventListener('touchend', (e) => touchEnd(e, false));
+// 着信・通知・画面端からのスワイプなどでタッチが中断されたときも、指を離したのと同じに戻す
+canvas.addEventListener('touchcancel', (e) => touchEnd(e, true));
+// 入力をすべて離した状態に戻す（タブの切り替え・アプリの切り替え・一時停止など）
+function releaseAllInput() {
+  touch.stickId = null; touch.lookId = null; touch.mx = touch.my = 0; knob.style.transform = '';
+  jumpHeld = false; jumpPressed = false;
+  for (const k in keys) keys[k] = false;
+}
+addEventListener('blur', releaseAllInput);
+document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAllInput(); });
 const btnJump = $('btnJump');
 btnJump.addEventListener('touchstart', (e) => { if (!jumpHeld) jumpPressed = true; jumpHeld = true; e.preventDefault(); }, { passive: false });
 btnJump.addEventListener('touchend', () => { jumpHeld = false; });
+btnJump.addEventListener('touchcancel', () => { jumpHeld = false; jumpPressed = false; });
 
 // ---------------------------------------------------------------------------
 // 葉をつかむ
@@ -2352,7 +2371,7 @@ const bgm = (() => {
 {
   // BGMの切り替え：Mキー、またはタイトル・一時停止・HUDのボタン
   const btns = [...document.querySelectorAll('.bgmBtn')];
-  const sync = () => btns.forEach((btn) => { btn.textContent = bgm.on ? '♪ BGM オン（M）' : '♪ BGM オフ（M）'; btn.classList.toggle('off', !bgm.on); });
+  const sync = () => btns.forEach((btn) => { btn.textContent = (bgm.on ? '♪ BGM オン' : '♪ BGM オフ') + (isTouch ? '' : '（M）'); btn.classList.toggle('off', !bgm.on); });
   const flip = () => { bgm.start(); bgm.toggle(); sync(); };
   sync();
   btns.forEach((btn) => btn.addEventListener('click', (e) => { e.stopPropagation(); flip(); }));
@@ -2596,6 +2615,7 @@ function gameOver(reason = 'leaves') {
 
 function pauseGame() {
   if (state !== 'play') return;
+  releaseAllInput();
   state = 'pause';
   $('pause').classList.remove('hidden');
 }
@@ -2620,8 +2640,47 @@ resetGame();
 player.pos.set(13.8, 0.12, 6);
 const clock = new THREE.Clock();
 let titleT = 0;
+// ---------------------------------------------------------------------------
+// fps表示と画質の自動切り替え：高画質 → 標準（影なし・解像度1倍）→ 軽量（遠くの木をさらに簡略化）
+// ---------------------------------------------------------------------------
+const QUALITY_NAMES = ['高画質', '標準', '軽量'];
+let quality = LOW ? 2 : 0, fpsFrames = 0, fpsTime = 0, fpsNow = 60, slowSec = 0, qualityHold = 5;
+function applyQuality(q) {
+  quality = q;
+  const shadows = q === 0;
+  renderer.shadowMap.enabled = shadows;
+  sun.castShadow = shadows;
+  renderer.setPixelRatio(Math.min(devicePixelRatio, q === 0 ? 2 : 1));
+  renderer.setSize(innerWidth, innerHeight);
+  LOD_FAR = q === 2 ? 40 : 70;
+  for (const vs of leafMeshes) for (const ss of vs) for (const m of ss) m.castShadow = shadows;
+  trees.forEach((t) => { t.lod = -1; });
+  instDirty = true; instTimer = 0;
+  qualityHold = 5; slowSec = 0;
+}
+applyQuality(quality);
+function updateFps(dt) {
+  fpsFrames++; fpsTime += dt;
+  if (fpsTime >= 0.5) {
+    fpsNow = fpsFrames / fpsTime; fpsFrames = 0;
+    const el = $('fps');
+    el.textContent = `${Math.round(fpsNow)} fps · ${QUALITY_NAMES[quality]}`;
+    el.classList.toggle('slow', fpsNow < 30);
+    // 遊んでいる最中に、30fpsを3秒続けて下回ったら画質を1段下げる（上げ直しはしない）
+    if (state === 'play' && !document.hidden) {
+      if (qualityHold > 0) qualityHold -= fpsTime;
+      else if (fpsNow < 30 && quality < 2) {
+        slowSec += fpsTime;
+        if (slowSec >= 3) { applyQuality(quality + 1); toast(`動作が重いため「${QUALITY_NAMES[quality]}」モードに切り替えました`, 2500); }
+      } else slowSec = 0;
+    }
+    fpsTime = 0;
+  }
+}
+let lastFrameT = performance.now();
 function frame() {
   requestAnimationFrame(frame);
+  const nowT = performance.now(); updateFps(Math.min((nowT - lastFrameT) / 1000, 1)); lastFrameT = nowT;
   step(Math.min(clock.getDelta(), 0.05));
   updateLOD(0.05);
   updateShafts();

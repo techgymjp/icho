@@ -77,3 +77,9 @@ body.touch #touchUI { display: block; }
 #result .big small { font-size: 16px; color: #f2e6c4; }
 #result .sub2 { font-size: 17px; margin-bottom: 6px; }
 #result .sub2 b { color: #ffd84a; font-size: 22px; }
+#fps { position: absolute; left: 14px; bottom: 12px; font-size: 11px; padding: 2px 8px; border-radius: 6px; background: rgba(30,22,6,.45); color: #cfe8c0; font-variant-numeric: tabular-nums; }
+#fps.slow { color: #ff9a7a; }
+#btnJump { white-space: nowrap; font-size: 14px; padding: 0; }
+@media (max-width: 600px) {
+  #toast { top: auto; bottom: 200px; font-size: 18px; white-space: normal; width: 86vw; text-align: center; }
+}
