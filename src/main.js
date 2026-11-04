@@ -1245,7 +1245,7 @@ const RESTORE_AT = 0.75;
 // ルール：いちょう祭りの7日間（7分）、最後の一葉を散らせずに守り切ればクリア。
 // すべての木が葉を落としきったら冬（ゲームオーバー）。同じ木をよみがえらせられるのは1日1回まで
 const GOAL_DAYS = 7;
-const RATE_BASE = (window.__ichoTune && window.__ichoTune.base) || 1.15, RATE_T = (window.__ichoTune && window.__ichoTune.T) || 150;   // 散る速さ（以前の約1/2.3）と、時間とともに速くなる度合い   // 葉がこれより減ると「枯れかけ」：てっぺんの玉が点灯し、触れるとよみがえる
+const RATE_BASE = (window.__ichoTune && window.__ichoTune.base) || 1.5, RATE_T = (window.__ichoTune && window.__ichoTune.T) || 150;   // 散る速さ（何もしないと約3.5日で最後の一葉が散る）と、時間とともに速くなる度合い   // 葉がこれより減ると「枯れかけ」：てっぺんの玉が点灯し、触れるとよみがえる
 function stageOf(r) { return r > 0.86 ? 0 : r > 0.62 ? 1 : r > 0.4 ? 2 : r > 0.2 ? 3 : r > 0.015 ? 4 : -1; }
 const TPL_H = 20, TPL_Y0 = 3.4;
 const N_CLUSTERS = LOW ? 2800 : 7000;
@@ -1585,8 +1585,9 @@ function updatePeople(dt, totalRatio, hour) {
 // ---------------------------------------------------------------------------
 // プレイヤー
 // ---------------------------------------------------------------------------
-const GRAV = 14;
-const JUMP_V0 = 6, JUMP_ACC = 16.8, JUMP_BOOST_T = 0.8;   // 押した瞬間の初速と、押し続けたときの上昇（最大 約23.5m）
+const GRAV = 26, FALL_MUL = 1.35;   // 重力（落ちるときはさらに強く、キビキビ動く）
+const JUMP_V0 = 8, JUMP_ACC = 30.5, JUMP_BOOST_T = 0.6;   // 押した瞬間の初速と、押し続けたときの上昇（最大 約23.5m）
+const HOP_T = 0.5;   // 木のてっぺんから隣のてっぺんへ跳び移る時間
 const player = { pos: new THREE.Vector3(0, 0, 6), vy: 0, yaw: 0, pitch: -0.28, face: 0, walk: 0, moving: 0, charge: 0, boost: 0, onGround: true, climbing: null, riding: null };
 const keys = {};
 let jumpHeld = false, jumpPressed = false;
@@ -1642,6 +1643,47 @@ function updatePlayer(dt) {
 
   // ジャンプ：Space を押した瞬間に跳び、押し続けている間は上昇が続く（最大で木のてっぺんまで）
   const canJump = player.onGround || player.climbing;
+  // 木のてっぺんにいて、進みたい方向があれば、その方向の隣の木のてっぺんへ「ポン」と跳び移る
+  const onTop = player.onGround && trees.find((t) => Math.hypot(t.x - p.x, t.z - p.z) < 2.2 && p.y > t.h - 2.5);
+  if (jumpPressed && onTop && !player.hop) {
+    let mx = 0, mz = 0;
+    { let fx2 = 0, fz2 = 0;
+      if (keys.KeyW || keys.ArrowUp) fz2 += 1; if (keys.KeyS || keys.ArrowDown) fz2 -= 1; if (keys.KeyA || keys.ArrowLeft) fx2 -= 1; if (keys.KeyD || keys.ArrowRight) fx2 += 1;
+      fx2 += touch.mx; fz2 += touch.my;
+      const sy2 = Math.sin(player.yaw), cy2 = Math.cos(player.yaw);
+      mx = fx2 * cy2 - fz2 * sy2; mz = -fx2 * sy2 - fz2 * cy2; }
+    const ml = Math.hypot(mx, mz);
+    if (ml > 0.3) {
+      let best = null, bs = 1e9;
+      for (const t of trees) {
+        if (t === onTop) continue;
+        const dx = t.x - onTop.x, dz = t.z - onTop.z, d = Math.hypot(dx, dz);
+        if (d > 15) continue;
+        const cos = (dx * mx + dz * mz) / (d * ml);
+        if (cos < 0.6) continue;
+        const sc = d * (2 - cos);
+        if (sc < bs) { bs = sc; best = t; }
+      }
+      if (best) {
+        player.hop = { x0: p.x, y0: p.y, z0: p.z, x1: best.x, y1: best.h - 0.2, z1: best.z, t: 0, peak: 2.2 + Math.hypot(best.x - p.x, best.z - p.z) * 0.12 };
+        player.face = Math.atan2(-(best.x - p.x), -(best.z - p.z));
+        player.onGround = false; player.riding = null; player.lastTop = onTop;
+        sfx.jump();
+        jumpPressed = false;
+      }
+    }
+  }
+  if (player.hop) {
+    const h = player.hop; h.t += dt / HOP_T;
+    const k = Math.min(1, h.t);
+    p.x = lerp(h.x0, h.x1, k); p.z = lerp(h.z0, h.z1, k);
+    p.y = lerp(h.y0, h.y1, k) + 4 * h.peak * k * (1 - k);
+    player.vy = 0; player.charge = 0;
+    if (k >= 1) { player.hop = null; player.onGround = true; sfx.land(8); }
+    player.moving = 1; player.walk += dt * 6;
+    updateAvatar(dt); updateFollowCamera();
+    return;
+  }
   if (jumpPressed && canJump) {
     player.vy = JUMP_V0;
     player.boost = JUMP_BOOST_T;
@@ -1708,7 +1750,7 @@ function updatePlayer(dt) {
     if (target) { const k = Math.min(1, dt * 7); p.x += (target.x - p.x) * k; p.z += (target.z - p.z) * k; }
     else { p.x += mvx * speed * dt; p.z += mvz * speed * dt; }
     player.walk += len * speed * dt;
-    player.vy = Math.max(player.vy - GRAV * dt, -26);
+    player.vy = Math.max(player.vy - GRAV * (player.vy < 0 ? FALL_MUL : 1) * dt, -38);
     p.y += player.vy * dt;
   }
   if (p.y > 40) { p.y = 40; player.vy = 0; }
@@ -2322,7 +2364,7 @@ let lastPhase = '', lightupToasted = -1, lastAlive = trees.length, lastLeafToast
 
 function resetGame() {
   elapsed = 0; caught = 0; golds = 0; restored = 0; combo = 0; endTimer = 0; lastLeafToasted = false; goldSum = 0; lastDayToast = 0;
-  player.pos.set(13.8, 0.12, 6); player.vy = 0; player.yaw = 0; player.pitch = -0.28; player.face = 0; player.charge = 0; player.climbing = null; player.riding = null; player.onGround = true;
+  player.pos.set(13.8, 0.12, 6); player.vy = 0; player.yaw = 0; player.pitch = -0.28; player.face = 0; player.charge = 0; player.climbing = null; player.riding = null; player.onGround = true; player.hop = null;
   cars.forEach((c) => { if (!c.parked) { c.active = false; c.mesh.visible = false; } });
   for (let i = 0; i < FALL_MAX; i++) if (fActive[i]) freeFalling(i);
   for (let i = 0; i < GROUND_MAX; i++) groundMesh.setMatrixAt(i, ZERO);
