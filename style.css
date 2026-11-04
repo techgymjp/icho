@@ -66,3 +66,9 @@ body.touch #touchUI { display: block; }
 .btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; align-items: center; }
 .btn2 { font-family: "Shippori Mincho", serif; font-size: 16px; font-weight: 700; padding: 11px 24px; border-radius: 999px; color: #ffe27a; text-decoration: none; border: 1px solid rgba(255,216,74,.6); background: rgba(0,0,0,.2); }
 .btn2:hover { background: rgba(255,216,74,.15); }
+#bgmBtn { position: absolute; right: 14px; top: 324px; pointer-events: auto; font-family: "Zen Kaku Gothic New", sans-serif; font-size: 12px; padding: 6px 12px; border-radius: 999px; box-shadow: none; }
+#bgmBtn.off { background: rgba(30,22,6,.55); color: #e8d9a8; border: 1px solid rgba(255,216,74,.4); }
+@media (max-width: 600px) { #bgmBtn { top: 222px; } }
+.btn3 { font-size: 13px; padding: 7px 16px; box-shadow: none; }
+.btn3.off { background: rgba(0,0,0,.25); color: #e8d9a8; border: 1px solid rgba(255,216,74,.4); }
+.story { font-family: "Shippori Mincho", serif; font-size: 20px; letter-spacing: .15em; margin: 6px 0 18px; }

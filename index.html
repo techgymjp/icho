@@ -31,6 +31,7 @@
   <div id="climb" class="hidden">木登り中（幹へ進むと登る・離れる方向で降りる / Space:幹を蹴ってジャンプ）</div>
   <div id="gaugeWrap"><div class="lbl">ジャンプ（Space：押し続けるほど高く上がる）</div><div id="gauge"><div id="gaugeFill"></div></div></div>
   <canvas id="minimap" width="96" height="300"></canvas>
+  <button id="bgmBtn" class="bgmBtn" title="BGMの切り替え（M）">♪ BGM オン（M）</button>
   <div id="toast"></div>
   <div id="hint">Spaceで即ジャンプ。押し続けるほど高く上がり、イチョウのてっぺんまで届く！</div>
   <div id="touchUI">
@@ -44,17 +45,12 @@
   <div class="panel">
     <div class="sub">明治神宮外苑・晩秋</div>
     <h1>外苑いちょう並木<span>最後の一葉</span></h1>
-    <p class="story">
-      青山通りから絵画館へまっすぐ伸びる、146本のイチョウ並木。<br>
-      黄金色の葉は今が見頃。けれど木枯らしが吹くたび、葉はどんどん散っていく。<br>
-      <b>イチョウのてっぺんに触れると、その木の紅葉がよみがえる。</b><br>
-      すべての木が葉を落としきったら、冬が来る——ゲームオーバー。<br>
-      車道には外車がひっきりなしに走っている。<b>車にぶつかってもゲームオーバー。</b>
-    </p>
+    <p class="story">イチョウを枯らさないで。</p>
     <div class="btns">
       <button id="startBtn">並木を歩きはじめる</button>
       <a class="btn2" href="howto.html">遊び方</a>
     </div>
+    <div class="btns" style="margin-top:12px"><button class="bgmBtn btn3">♪ BGM オン（M）</button></div>
     <div class="note">落ち葉が地面に着く前につかむと、願いが叶うとも言われています。</div>
   </div>
 </div>
@@ -64,6 +60,7 @@
   <div class="panel small">
     <h2>ひと休み</h2>
     <button id="resumeBtn">クリックで再開</button>
+    <div class="btns" style="margin-top:12px"><button class="bgmBtn btn3">♪ BGM オン（M）</button></div>
   </div>
 </div>
 

@@ -1241,6 +1241,7 @@ const barkMat = new THREE.MeshStandardMaterial({ map: BARK.map, normalMap: BARK.
 applyWind(barkMat, false);
 
 const STAGE_FRAC = [1, 0.75, 0.5, 0.3, 0.1];
+const RESTORE_AT = 0.75;   // 葉がこれより減ると「枯れかけ」：てっぺんの玉が点灯し、触れるとよみがえる
 function stageOf(r) { return r > 0.86 ? 0 : r > 0.62 ? 1 : r > 0.4 ? 2 : r > 0.2 ? 3 : r > 0.015 ? 4 : -1; }
 const TPL_H = 20, TPL_Y0 = 3.4;
 const N_CLUSTERS = LOW ? 2800 : 7000;
@@ -1369,7 +1370,7 @@ const apexPos = new Float32Array(trees.length * 3), apexCol = new Float32Array(t
 trees.forEach((t, i) => { apexPos[i * 3] = t.x; apexPos[i * 3 + 1] = t.h + 0.7; apexPos[i * 3 + 2] = t.z; });
 apexGeo.setAttribute('position', new THREE.BufferAttribute(apexPos, 3));
 apexGeo.setAttribute('color', new THREE.BufferAttribute(apexCol, 3));
-const apexMat = new THREE.PointsMaterial({ size: 2.4, map: GLOW_TEX, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+const apexMat = new THREE.PointsMaterial({ size: 3.0, map: GLOW_TEX, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
 scene.add(new THREE.Points(apexGeo, apexMat));
 
 // ---------------------------------------------------------------------------
@@ -1489,7 +1490,19 @@ for (let i = 0; i < PEOPLE_MAX; i++) {
   bodyMesh.setMatrixAt(i, ZERO); headMesh.setMatrixAt(i, ZERO);
   bodyMesh.setColorAt(i, _c.setHex(COATS[i % COATS.length]));
 }
-scene.add(bodyMesh, headMesh);
+// 帽子：つば付きの中折れ帽／ニット帽／ベレー帽の3種類を人ごとに
+const HAT_GEOS = [
+  mergeGeometries([new THREE.CylinderGeometry(0.25, 0.25, 0.025, 16).translate(0, 1.6, 0), new THREE.CylinderGeometry(0.12, 0.14, 0.14, 14).translate(0, 1.68, 0)]),
+  new THREE.SphereGeometry(0.145, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55).scale(1, 1.15, 1).translate(0, 1.53, 0),
+  new THREE.SphereGeometry(0.17, 12, 6).scale(1, 0.35, 1).translate(0.03, 1.63, 0),
+];
+const HAT_COLORS = [0x2b2b2e, 0x6b4a33, 0xb33a2e, 0xd9cdb2, 0x2f4a6b, 0x7a7d80, 0xe6a83a, 0x3f5f3a];
+const hatMeshes = HAT_GEOS.map((g) => { const m = new THREE.InstancedMesh(g, lambert(0xffffff), PEOPLE_MAX); m.castShadow = true; m.frustumCulled = false; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); return m; });
+for (let i = 0; i < PEOPLE_MAX; i++) {
+  people[i].hat = i % 3;
+  hatMeshes.forEach((m) => { m.setMatrixAt(i, ZERO); m.setColorAt(i, _c.setHex(HAT_COLORS[(i * 5 + 3) % HAT_COLORS.length])); });
+}
+scene.add(bodyMesh, headMesh, ...hatMeshes);
 const LANES = [[WALK_IN + 0.6, WALK_OUT - 0.6], [-WALK_OUT + 0.6, -WALK_IN - 0.6]];
 function spawnPerson(p, nearPlayer) {
   const lane = LANES[Math.random() < 0.5 ? 0 : 1];
@@ -1526,7 +1539,11 @@ function updatePeople(dt, totalRatio, hour) {
   for (let i = 0; i < people.length; i++) {
     const p = people[i];
     if (!p.active) continue;
+    // 目の前にプレイヤーがいたら立ち止まる
+    const ahead = (player.pos.z - p.z) * -p.dir;
+    const blocked = Math.abs(player.pos.x - p.x) < 0.9 && ahead > 0 && ahead < 1.6 && player.pos.y < 1.7;
     if (p.stop > 0) p.stop -= dt;
+    else if (blocked) { /* 待つ */ }
     else {
       p.z += p.dir * p.speed * dt * -1;
       p.phase += dt * p.speed * 5;
@@ -1538,14 +1555,15 @@ function updatePeople(dt, totalRatio, hour) {
       else p.dir *= -1, p.z = clamp(p.z, AVE_END + 0.6, AVE_START - 0.6);
     }
     if (p.leaving && far) p.active = false;
-    if (!p.active) { bodyMesh.setMatrixAt(i, ZERO); headMesh.setMatrixAt(i, ZERO); continue; }
+    if (!p.active) { bodyMesh.setMatrixAt(i, ZERO); headMesh.setMatrixAt(i, ZERO); hatMeshes[p.hat].setMatrixAt(i, ZERO); continue; }
     const bob = p.stop > 0 ? 0 : Math.abs(Math.sin(p.phase)) * 0.05;
     const yaw = p.stop > 0 ? (p.x > 0 ? Math.PI / 2 : -Math.PI / 2) : (p.dir > 0 ? 0 : Math.PI);
     _q.setFromAxisAngle(_v.set(0, 1, 0), yaw);
     _m.compose(_v.set(p.x, groundY(p.x, p.z) + bob, p.z), _q, _s.set(p.h, p.h, p.h));
-    bodyMesh.setMatrixAt(i, _m); headMesh.setMatrixAt(i, _m);
+    bodyMesh.setMatrixAt(i, _m); headMesh.setMatrixAt(i, _m); hatMeshes[p.hat].setMatrixAt(i, _m);
   }
   bodyMesh.instanceMatrix.needsUpdate = true; headMesh.instanceMatrix.needsUpdate = true;
+  for (const m of hatMeshes) m.instanceMatrix.needsUpdate = true;
   bodyMesh.instanceColor.needsUpdate = true;
 }
 
@@ -1596,7 +1614,7 @@ function updatePlayer(dt) {
   const len = Math.hypot(fx, fz);
   if (len > 1) { fx /= len; fz /= len; }
   const sy = Math.sin(player.yaw), cy = Math.cos(player.yaw);
-  const prevY = p.y, prevX = p.x;
+  const prevY = p.y, prevX = p.x, prevZ = p.z;
   // 長押しでスピードアップ（歩く・木登りとも。約2秒で最大2.5倍）
   player.holdT = len > 0.3 ? (player.holdT || 0) + dt : 0;
   const boostMul = 1 + Math.min(1.5, player.holdT * 0.75);
@@ -1701,6 +1719,17 @@ function updatePlayer(dt) {
     if (Math.abs(dx) > rr || Math.abs(dz) > rr) continue;
     const d = Math.hypot(dx, dz);
     if (d < rr && d > 1e-4) { p.x = o.x + dx / d * rr; p.z = o.z + dz / d * rr; }
+  }
+  // 歩行者とはぶつかる（すり抜けない）。頭より上なら飛び越えられる
+  for (const q of people) {
+    if (!q.active || p.y > 1.75 * q.h) continue;
+    const dx = p.x - q.x, dz = p.z - q.z, rr = 0.6;
+    if (Math.abs(dx) > rr || Math.abs(dz) > rr) continue;
+    if (Math.hypot(dx, dz) < rr) {
+      // ぶつかる前にいた側へ押し戻す（正面からなら止まる）
+      let nx = prevX - q.x, nz = prevZ - q.z; const l = Math.hypot(nx, nz) || 1; nx /= l; nz /= l;
+      p.x = q.x + nx * rr; p.z = q.z + nz * rr;
+    }
   }
   // 幹のカプセルコライダー（葉・枝には当たり判定なし）
   if (p.y < 2.5 && !player.climbing) for (const t of trees) {
@@ -2159,6 +2188,7 @@ const sfx = (() => {
   const PENTA = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.5];
   return {
     init,
+    get ctx() { return ctx; },
     resume() { ctx && ctx.state === 'suspended' && ctx.resume(); },
     wind(level) { if (windGain) { windGain.gain.setTargetAtTime(0.08 + level * 0.3, ctx.currentTime, 0.5); windFilter.frequency.setTargetAtTime(350 + level * 900, ctx.currentTime, 0.5); } },
     catch(c) { tone(PENTA[Math.min(c - 1, PENTA.length - 1)], 0, 0.6, 0.1); },
@@ -2174,6 +2204,82 @@ const sfx = (() => {
     crash() { tone(110, 0, 0.6, 0.2, 'sawtooth'); tone(70, 0.05, 0.8, 0.2, 'square'); },
   };
 })();
+
+// ---------------------------------------------------------------------------
+// BGM：オルゴール風のメルヘンなワルツ（オリジナル曲・WebAudioで生成）
+// ---------------------------------------------------------------------------
+const bgm = (() => {
+  const BPM = 92, EIGHTH = 60 / BPM / 2;          // 3/4拍子、1小節 = 8分音符6つ
+  const _ = 0;
+  // メロディ（MIDIノート番号、0は休符）。16小節
+  const MEL = [
+    76, _, 79, _, 84, _,   83, _, 81, _, 76, _,   77, _, 81, _, 84, _,   83, _, 79, _, 74, _,
+    76, 79, 84, _, 88, _,  86, _, 83, _, 79, _,   81, _, 77, _, 74, 71,  72, _, _, _, _, _,
+    79, _, 76, _, 72, _,   81, _, 84, _, 88, _,   77, _, 81, _, 77, _,   79, _, 83, _, 86, _,
+    88, _, 86, _, 84, _,   83, _, 79, _, 76, _,   77, _, 74, _, 71, _,   72, _, _, 79, 84, _,
+  ];
+  // 和音（1小節ごと）：根音と和音の構成音
+  const C = [48, 60, 64, 67], Am = [45, 57, 60, 64], F = [41, 57, 60, 65], G = [43, 55, 59, 62], Em = [40, 55, 59, 64], Dm = [38, 57, 62, 65];
+  const CH = [C, Am, F, G, C, Em, F, C, C, Am, F, G, Am, Em, Dm, C];
+  let ctx = null, out = null, on = true, timer = null, step = 0, nextT = 0, started = false;
+  const hz = (m) => 440 * Math.pow(2, (m - 69) / 12);
+  function bell(m, t, vol, dur) {   // オルゴールの音：基音＋高い倍音、すぐに減衰
+    for (const [mul, v, d] of [[1, 1, 1], [4, 0.18, 0.35], [2.01, 0.25, 0.6]]) {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine'; o.frequency.value = hz(m) * mul;
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol * v, t + 0.005);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur * d);
+      o.connect(g).connect(out); o.start(t); o.stop(t + dur * d + 0.05);
+    }
+  }
+  function pad(m, t, vol, dur) {     // 伴奏：やわらかい三角波
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'triangle'; o.frequency.value = hz(m);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(out); o.start(t); o.stop(t + dur + 0.05);
+  }
+  function schedule() {
+    while (nextT < ctx.currentTime + 0.25) {
+      const bar = Math.floor(step / 6) % 16, pos = step % 6, ch = CH[bar];
+      const m = MEL[step % MEL.length];
+      if (m) bell(m, nextT, 0.16, 1.6);
+      if (pos === 0) pad(ch[0], nextT, 0.09, EIGHTH * 2.2);                       // 1拍目：低音
+      if (pos === 2 || pos === 4) for (const n of ch.slice(1)) pad(n, nextT, 0.03, EIGHTH * 1.6); // 2・3拍目：和音
+      if (pos === 5 && bar % 4 === 3) bell(ch[3] + 24, nextT, 0.05, 1.2);          // ときどき高いきらめき
+      nextT += EIGHTH; step++;
+    }
+  }
+  function start() {
+    if (started) return;
+    sfx.init(); ctx = sfx.ctx; if (!ctx) return;
+    started = true;
+    out = ctx.createGain(); out.gain.value = on ? 0.55 : 0;
+    // やわらかい残響（ディレイのフィードバック）
+    const dl = ctx.createDelay(1), fb = ctx.createGain(), wet = ctx.createGain(), lp = ctx.createBiquadFilter();
+    dl.delayTime.value = EIGHTH * 3; fb.gain.value = 0.32; wet.gain.value = 0.35; lp.type = 'lowpass'; lp.frequency.value = 2400;
+    out.connect(ctx.destination); out.connect(dl); dl.connect(lp).connect(fb).connect(dl); lp.connect(wet).connect(ctx.destination);
+    nextT = ctx.currentTime + 0.1;
+    timer = setInterval(schedule, 100);
+  }
+  function toggle() {
+    on = !on;
+    if (out) out.gain.setTargetAtTime(on ? 0.55 : 0, ctx.currentTime, 0.1);
+    try { localStorage.setItem('icho-bgm', on ? '1' : '0'); } catch {}
+    return on;
+  }
+  try { if (localStorage.getItem('icho-bgm') === '0') on = false; } catch {}
+  return { start, toggle, get on() { return on; } };
+})();
+{
+  // BGMの切り替え：Mキー、またはタイトル・一時停止・HUDのボタン
+  const btns = [...document.querySelectorAll('.bgmBtn')];
+  const sync = () => btns.forEach((btn) => { btn.textContent = bgm.on ? '♪ BGM オン（M）' : '♪ BGM オフ（M）'; btn.classList.toggle('off', !bgm.on); });
+  const flip = () => { bgm.start(); bgm.toggle(); sync(); };
+  sync();
+  btns.forEach((btn) => btn.addEventListener('click', (e) => { e.stopPropagation(); flip(); }));
+  addEventListener('keydown', (e) => { if (e.code === 'KeyM' && !e.repeat) flip(); });
+}
 
 // ---------------------------------------------------------------------------
 // ゲーム進行
@@ -2197,7 +2303,7 @@ function resetGame() {
     t.ratio = t.list.length / LEAVES;
   });
   instDirty = true;
-  people.forEach((p, i) => { p.active = false; bodyMesh.setMatrixAt(i, ZERO); headMesh.setMatrixAt(i, ZERO); });
+  people.forEach((p, i) => { p.active = false; bodyMesh.setMatrixAt(i, ZERO); headMesh.setMatrixAt(i, ZERO); hatMeshes[p.hat].setMatrixAt(i, ZERO); });
   // 開始時点の人出
   const init = Math.round(PEOPLE_MAX * 0.85 * hourFactor(START_HOUR));
   for (let k = 0; k < init; k++) spawnPerson(people[k], true);
@@ -2227,17 +2333,18 @@ function restoreTree(t, ti) {
   toast('てっぺんに触れた！ 紅葉がよみがえる');
 }
 
+const _body = new THREE.Vector3();
 function updateTrees(dt) {
   const rate = 2.6 * (1 + elapsed / 100) * (1 + wind.gust * 1.6); // 時間とともに散るのが早くなる
   const px = player.pos.x, pz = player.pos.z;
-  const body = _v.set(px, player.pos.y + 0.9, pz);
+  const body = _body.set(px, player.pos.y + 0.9, pz);   // _v は葉の位置計算で上書きされるので別の変数を使う
   let total = 0, alive = 0;
   for (let ti = 0; ti < trees.length; ti++) {
     const t = trees[ti];
     if (t.cooldown > 0) t.cooldown -= dt;
     // てっぺんに触れたら紅葉が戻る
     const dx = body.x - t.x, dy = body.y - t.h, dz = body.z - t.z;
-    if (dx * dx + dy * dy + dz * dz < 2.6 * 2.6 && t.cooldown <= 0 && t.list.length < LEAVES * 0.97) restoreTree(t, ti);
+    if (dx * dx + dy * dy + dz * dz < 2.6 * 2.6 && t.cooldown <= 0 && t.ratio < RESTORE_AT) restoreTree(t, ti);
 
     if (t.list.length) {
       // 木ごとにゆらぐ速さ＋ときどき一気に散る
@@ -2250,10 +2357,11 @@ function updateTrees(dt) {
     total += t.list.length;
     if (t.list.length) alive++;
     // てっぺんの目印の色
-    const r = t.ratio, blink = r < 0.3 ? 0.6 + 0.4 * Math.sin(elapsed * 8 + ti) : 1;
-    if (r <= 0) apexCol.set([0.15, 0.1, 0.08], ti * 3);
-    else if (r < 0.3) apexCol.set([1 * blink, 0.25 * blink, 0.1 * blink], ti * 3);
-    else apexCol.set([1 * 0.75, 0.85 * 0.75, 0.45 * 0.75], ti * 3);
+    // てっぺんの玉：枯れかけた木（触れるとよみがえる木）だけ点灯する。元気な木は消灯
+    const r = t.ratio, pulse = 0.75 + 0.25 * Math.sin(elapsed * 3 + ti), blink = 0.55 + 0.45 * Math.sin(elapsed * 8 + ti);
+    if (r >= RESTORE_AT) apexCol.set([0, 0, 0], ti * 3);
+    else if (r < 0.3) apexCol.set([1 * blink, 0.22 * blink, 0.08 * blink], ti * 3);   // 赤く点滅：急いで
+    else apexCol.set([1 * pulse, 0.82 * pulse, 0.35 * pulse], ti * 3);               // 金色に点灯：枯れはじめ
   }
   apexGeo.attributes.color.needsUpdate = true;
   if (alive < lastAlive && alive > 0 && alive % 10 === 0) toast(`葉のある木は残り${alive}本`);
@@ -2385,7 +2493,7 @@ function pauseGame() {
   $('pause').classList.remove('hidden');
 }
 function startPlay() {
-  sfx.init(); sfx.resume();
+  sfx.init(); sfx.resume(); bgm.start();
   ['title', 'pause', 'over'].forEach((id) => $(id).classList.add('hidden'));
   $('hud').classList.remove('hidden');
   state = 'play';
@@ -2468,4 +2576,4 @@ function step(dt) {
 frame();
 
 // デバッグ用（ブラウザのコンソールから）
-window.__icho = { scene, THREE, trees, player, cars, step(dt, n = 1) { for (let i = 0; i < n; i++) step(dt); }, get state() { return state; }, get elapsed() { return elapsed; }, set elapsed(v) { elapsed = v; } };
+window.__icho = { people, get apexCol() { return apexCol; }, scene, THREE, trees, player, cars, step(dt, n = 1) { for (let i = 0; i < n; i++) step(dt); }, get state() { return state; }, get elapsed() { return elapsed; }, set elapsed(v) { elapsed = v; } };
