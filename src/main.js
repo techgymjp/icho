@@ -133,19 +133,6 @@ function barkTextures() {
   const wrap = (c, srgb) => { const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 5); if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t; };
   return { map: wrap(ac, true), normal: wrap(normalFromHeight(hc, 4)), rough: wrap(rc) };
 }
-// 遠景の樹冠（円錐）用：葉が密集した模様
-function canopyTexture() {
-  const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
-  const g = c.getContext('2d');
-  g.fillStyle = '#c99716'; g.fillRect(0, 0, S, S);
-  for (let i = 0; i < 2600; i++) {
-    g.save(); g.translate(Math.random() * S, Math.random() * S); g.rotate(Math.random() * 6.28);
-    const l = rand(0.45, 0.85); g.fillStyle = `rgba(${255 * l | 0},${215 * l | 0},${60 * l | 0},.9)`;
-    g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, rand(3, 7), -2.4, -0.7); g.closePath(); g.fill(); g.restore();
-  }
-  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(4, 4); t.colorSpace = THREE.SRGBColorSpace;
-  return t;
-}
 function glowTexture() {
   const c = document.createElement('canvas'); c.width = c.height = 64;
   const g = c.getContext('2d');
