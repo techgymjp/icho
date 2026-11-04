@@ -2551,9 +2551,10 @@ function updateHUD(total, alive) {
 }
 
 function rankOfClear(n) {   // n：7日目の終わりに葉が残っていた木の本数
-  if (n >= 60) return 'いちょう並木の守り神';
-  if (n >= 30) return '黄金の並木の名人';
-  if (n >= 10) return '外苑の庭師';
+  // COMP検証（候補B）：ふつうのボット 8本前後、上手なボット 6〜14本
+  if (n >= 20) return 'いちょう並木の守り神';
+  if (n >= 10) return '黄金の並木の名人';
+  if (n >= 5) return '外苑の庭師';
   return '並木の世話人';
 }
 function rankOf(days) {
