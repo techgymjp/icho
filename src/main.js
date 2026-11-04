@@ -1367,10 +1367,21 @@ function markTree(t) { if (stageOf(t.ratio) !== t.stage) instDirty = true; }
 // てっぺんの目印
 const apexGeo = new THREE.BufferGeometry();
 const apexPos = new Float32Array(trees.length * 3), apexCol = new Float32Array(trees.length * 3);
-trees.forEach((t, i) => { apexPos[i * 3] = t.x; apexPos[i * 3 + 1] = t.h + 0.7; apexPos[i * 3 + 2] = t.z; });
+// 光る玉の場所：地上の幹の根元（45%）・てっぺん（40%）・幹の途中（15%）。よみがえるたびに置き直す
+function placeOrb(t, i) {
+  const r = Math.random();
+  t.orbKind = r < 0.45 ? 'ground' : r < 0.85 ? 'top' : 'mid';
+  const a = rand(0, Math.PI * 2);
+  if (t.orbKind === 'top') t.orb = new THREE.Vector3(t.x, t.h + 0.7, t.z);
+  else if (t.orbKind === 'ground') t.orb = new THREE.Vector3(t.x + Math.cos(a) * 1.0, groundY(t.x, t.z) + 1.1, t.z + Math.sin(a) * 1.0);
+  else t.orb = new THREE.Vector3(t.x + Math.cos(a) * 0.95, t.y0 + t.H * rand(0.3, 0.55), t.z + Math.sin(a) * 0.95);
+  apexPos.set([t.orb.x, t.orb.y, t.orb.z], i * 3);
+  if (apexGeo.attributes.position) apexGeo.attributes.position.needsUpdate = true;
+}
+trees.forEach((t, i) => placeOrb(t, i));
 apexGeo.setAttribute('position', new THREE.BufferAttribute(apexPos, 3));
 apexGeo.setAttribute('color', new THREE.BufferAttribute(apexCol, 3));
-const apexMat = new THREE.PointsMaterial({ size: 3.0, map: GLOW_TEX, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+const apexMat = new THREE.PointsMaterial({ size: 2.4, map: GLOW_TEX, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
 scene.add(new THREE.Points(apexGeo, apexMat));
 
 // ---------------------------------------------------------------------------
@@ -2324,13 +2335,15 @@ function removeLeaf(t, ti, nearPlayer) {
 }
 
 function restoreTree(t, ti) {
+  const kind = t.orbKind;
+  placeOrb(t, ti);   // 次に枯れかけたときは別の場所で光る
   while (t.list.length < LEAVES) t.list.push(t.list.length);
   t.ratio = 1; t.dead = false; t.cooldown = 1.5;
   markTree(t);
   restored++;
   doBurst(t);
   sfx.restore();
-  toast('てっぺんに触れた！ 紅葉がよみがえる');
+  toast('光る玉に触れた！ 紅葉がよみがえる');
 }
 
 const _body = new THREE.Vector3();
@@ -2343,8 +2356,8 @@ function updateTrees(dt) {
     const t = trees[ti];
     if (t.cooldown > 0) t.cooldown -= dt;
     // てっぺんに触れたら紅葉が戻る
-    const dx = body.x - t.x, dy = body.y - t.h, dz = body.z - t.z;
-    if (dx * dx + dy * dy + dz * dz < 2.6 * 2.6 && t.cooldown <= 0 && t.ratio < RESTORE_AT) restoreTree(t, ti);
+    const dx = body.x - t.orb.x, dy = body.y - t.orb.y, dz = body.z - t.orb.z;
+    if (dx * dx + dy * dy + dz * dz < (t.orbKind === 'top' ? 2.6 : 1.8) ** 2 && t.cooldown <= 0 && t.ratio < RESTORE_AT) restoreTree(t, ti);
 
     if (t.list.length) {
       // 木ごとにゆらぐ速さ＋ときどき一気に散る
