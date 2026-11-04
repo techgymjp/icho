@@ -1596,7 +1596,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Space') { if (!jumpHeld) jumpPressed = true; jumpHeld = true; e.preventDefault(); }
   if (e.code.startsWith('Arrow')) e.preventDefault();
 });
-addEventListener('keyup', (e) => { keys[e.code] = false; if (e.code === 'Space') jumpHeld = false; });
+addEventListener('keyup', (e) => { keys[e.code] = false; if (e.code === 'Space') { jumpHeld = false; e.preventDefault(); } });
 
 // 足もとで乗れる面（地面・イチョウの樹冠・車の屋根）
 function supportAt(x, z, maxY) {
@@ -2154,6 +2154,10 @@ function drawMinimap() {
   mctx.fillStyle = '#fff'; mctx.beginPath(); mctx.moveTo(0, -6); mctx.lineTo(4, 4); mctx.lineTo(-4, 4); mctx.closePath(); mctx.fill();
   mctx.restore();
 }
+// 祭りの日にち：時計の日付（0時で次の日）で数える。1日目は朝9時から、7日目の24時で終了
+const DAY_OFFSET = START_HOUR / 24 * DAY_SEC;
+function calDay(t) { return Math.floor((t + DAY_OFFSET) / DAY_SEC); }   // 0始まり
+const GOAL_T = () => GOAL_DAYS * DAY_SEC - DAY_OFFSET;
 function dayLabel(t) {
   const totalH = START_HOUR + t / DAY_SEC * 24;
   const day = Math.floor(totalH / 24) + 1, h = totalH % 24;
@@ -2401,7 +2405,7 @@ function restoreTree(t, ti) {
   const kind = t.orbKind;
   placeOrb(t, ti);   // 次に枯れかけたときは別の場所で光る
   while (t.list.length < LEAVES) t.list.push(t.list.length);
-  t.ratio = 1; t.dead = false; t.cooldown = 1.5; t.restoredDay = Math.floor(elapsed / DAY_SEC);
+  t.ratio = 1; t.dead = false; t.cooldown = 1.5; t.restoredDay = calDay(elapsed);
   markTree(t);
   restored++;
   doBurst(t);
@@ -2413,7 +2417,7 @@ const _body = new THREE.Vector3();
 let lastUsedToast = -10, goldSum = 0;
 function updateTrees(dt) {
   const rate = RATE_BASE * (1 + elapsed / RATE_T) * (1 + wind.gust * 1.6); // 時間とともに散るのが早くなる
-  const today = Math.floor(elapsed / DAY_SEC);
+  const today = calDay(elapsed);
   const px = player.pos.x, pz = player.pos.z;
   const body = _body.set(px, player.pos.y + 0.9, pz);   // _v は葉の位置計算で上書きされるので別の変数を使う
   let total = 0, alive = 0;
@@ -2532,7 +2536,7 @@ function updateHUD(total, alive) {
   $('alive').textContent = alive;
   $('ratio').textContent = `${(ratio * 100).toFixed(0)}%`;
   $('alive').classList.toggle('danger', alive <= 10);
-  $('left').textContent = `${Math.max(0, Math.ceil(GOAL_DAYS - elapsed / DAY_SEC))}日`;
+  $('left').textContent = `${Math.max(1, GOAL_DAYS - calDay(elapsed))}日`;
   $('restored').textContent = restored;
   $('caught').textContent = caught;
   const ph = alive === 1 && total < 40 ? '最後の一葉' : phaseLabel(ratio);
@@ -2595,6 +2599,7 @@ function pauseGame() {
   $('pause').classList.remove('hidden');
 }
 function startPlay() {
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();   // ボタンにフォーカスが残り、Spaceで押されてしまうのを防ぐ
   sfx.init(); sfx.resume(); bgm.start();
   ['title', 'pause', 'over'].forEach((id) => $(id).classList.add('hidden'));
   $('hud').classList.remove('hidden');
@@ -2603,9 +2608,9 @@ function startPlay() {
     try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { dragMode = true; }); } catch { dragMode = true; }
   }
 }
-$('startBtn').onclick = () => { resetGame(); startPlay(); setTimeout(() => ($('hint').style.opacity = 0), 9000); };
-$('resumeBtn').onclick = () => startPlay();
-$('retryBtn').onclick = () => { resetGame(); startPlay(); };
+$('startBtn').onclick = () => { if (state !== 'title') return; resetGame(); startPlay(); setTimeout(() => ($('hint').style.opacity = 0), 9000); };
+$('resumeBtn').onclick = () => { if (state === 'pause') startPlay(); };
+$('retryBtn').onclick = () => { if (state !== 'over') return; resetGame(); startPlay(); };
 
 // ---------------------------------------------------------------------------
 // メインループ
@@ -2651,9 +2656,9 @@ function step(dt) {
     updateHUD(total, alive);
     const ratioNow = total / (trees.length * LEAVES);
     goldSum += ratioNow * dt;
-    const day = Math.floor(elapsed / DAY_SEC);
+    const day = calDay(elapsed);
     if (day > lastDayToast && day < GOAL_DAYS) { lastDayToast = day; toast(day === GOAL_DAYS - 1 ? 'いちょう祭り 最終日！' : `いちょう祭り ${day + 1}日目　あと${GOAL_DAYS - day}日`); }
-    if (elapsed >= GOAL_DAYS * DAY_SEC) gameOver('clear');
+    if (elapsed >= GOAL_T()) gameOver('clear');
     else if (total === 0) {
       if (!lastLeafToasted) { lastLeafToasted = true; toast('最後の一葉が散った……', 3000); sfx.fall(); }
       endTimer += dt;
