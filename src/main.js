@@ -1243,8 +1243,8 @@ applyWind(barkMat, false);
 const STAGE_FRAC = [1, 0.75, 0.5, 0.3, 0.1];
 const RESTORE_AT = 0.75;
 // ルール：いちょう祭りの7日間（7分）、最後の一葉を散らせずに守り切ればクリア。
-// すべての木が葉を落としきったら冬（ゲームオーバー）。同じ木をよみがえらせられるのは1日1回まで
-const GOAL_DAYS = 7;
+// すべての木が葉を落としきったら冬（ゲームオーバー）。同じ木をよみがえらせられるのは2日に1回まで
+const GOAL_DAYS = 7, REVIVE_DAYS = 2;   // よみがえらせた日から2日たつまで、同じ木はよみがえらない
 const RATE_BASE = (window.__ichoTune && window.__ichoTune.base) || 1.5, RATE_T = (window.__ichoTune && window.__ichoTune.T) || 150;   // 散る速さ（何もしないと約3.5日で最後の一葉が散る）と、時間とともに速くなる度合い   // 葉がこれより減ると「枯れかけ」：てっぺんの玉が点灯し、触れるとよみがえる
 function stageOf(r) { return r > 0.86 ? 0 : r > 0.62 ? 1 : r > 0.4 ? 2 : r > 0.2 ? 3 : r > 0.015 ? 4 : -1; }
 const TPL_H = 20, TPL_Y0 = 3.4;
@@ -2371,7 +2371,7 @@ function resetGame() {
   groundIdx = 0; groundCount = 0;
   scatterInitialGround();
   trees.forEach((t, ti) => {
-    t.list.length = 0; t.cooldown = 0; t.restoredDay = -1; t.acc = 0; t.dead = false;
+    t.list.length = 0; t.cooldown = 0; t.restoredDay = -99; t.acc = 0; t.dead = false;
     const keep = Math.floor(LEAVES * rand(0.9, 1.0)); // 見頃の状態からスタート
     for (let k = 0; k < keep; k++) t.list.push(k);
     t.ratio = t.list.length / LEAVES;
@@ -2423,7 +2423,7 @@ function updateTrees(dt) {
     // てっぺんに触れたら紅葉が戻る
     const dx = body.x - t.orb.x, dy = body.y - t.orb.y, dz = body.z - t.orb.z;
     if (dx * dx + dy * dy + dz * dz < (t.orbKind === 'top' ? 2.6 : 1.8) ** 2 && t.cooldown <= 0 && t.ratio < RESTORE_AT) {
-      if (t.restoredDay === today) { if (elapsed - lastUsedToast > 2.5) { lastUsedToast = elapsed; toast('この木は今日はもうよみがえらせた。また明日'); } }
+      if (today - t.restoredDay < REVIVE_DAYS) { if (elapsed - lastUsedToast > 2.5) { lastUsedToast = elapsed; const n = REVIVE_DAYS - (today - t.restoredDay); toast(n === 1 ? 'この木はよみがえらせたばかり。また明日' : `この木はよみがえらせたばかり。あと${n}日`); } }
       else restoreTree(t, ti);
     }
 
@@ -2441,7 +2441,7 @@ function updateTrees(dt) {
     // てっぺんの玉：枯れかけた木（触れるとよみがえる木）だけ点灯する。元気な木は消灯
     const r = t.ratio, pulse = 0.75 + 0.25 * Math.sin(elapsed * 3 + ti), blink = 0.55 + 0.45 * Math.sin(elapsed * 8 + ti);
     if (r >= RESTORE_AT) apexCol.set([0, 0, 0], ti * 3);
-    else if (t.restoredDay === today) apexCol.set([0.22, 0.22, 0.26], ti * 3);       // 灰色：今日はもうよみがえらせた
+    else if (today - t.restoredDay < REVIVE_DAYS) apexCol.set([0.22, 0.22, 0.26], ti * 3);   // 灰色：よみがえらせてから2日たっていない
     else if (r < 0.3) apexCol.set([1 * blink, 0.22 * blink, 0.08 * blink], ti * 3);   // 赤く点滅：急いで
     else apexCol.set([1 * pulse, 0.82 * pulse, 0.35 * pulse], ti * 3);               // 金色に点灯：枯れはじめ
   }
