@@ -10,10 +10,14 @@
 <link rel="stylesheet" href="style.css">
 <script type="importmap">
 { "imports": {
-  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
-  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  "three": "./vendor/three/three.module.js",
+  "three/addons/": "./vendor/three/"
 } }
 </script>
+<!-- アプリ版（Android）だけで使う。Web 版では何もしない -->
+<script src="build-info.js"></script>
+<script src="ads-config.js"></script>
+<script src="ads.js"></script>
 </head>
 <body>
 <div id="app"></div>
@@ -41,6 +45,7 @@
     <div id="stick"><div id="knob"></div></div>
     <button id="btnJump">ジャンプ</button>
   </div>
+  <button id="pauseBtn" aria-label="一時停止">Ⅱ</button>
 </div>
 
 <!-- Title -->
@@ -49,12 +54,18 @@
     <div class="sub">明治神宮外苑・晩秋</div>
     <h1>外苑いちょう並木<span>最後の一葉</span></h1>
     <p class="story">7日間でイチョウの葉をどれだけ残せるか？</p>
+    <div id="best" class="best hidden"></div>
     <div class="btns">
       <button id="startBtn">並木を歩きはじめる</button>
-      <a class="btn2" href="howto.html">遊び方</a>
+      <a class="btn2 howtoLink" href="howto.html">遊び方</a>
     </div>
     <div class="btns" style="margin-top:12px"><button class="bgmBtn btn3">♪ BGM オン（M）</button></div>
     <div class="note">落ち葉が地面に着く前につかむと、願いが叶うとも言われています。</div>
+    <div id="legal" class="legal">
+      <span id="buildInfo"></span>
+      <a href="https://techgym.jp/privacy-policy/" target="_blank" rel="noopener">プライバシーポリシー</a>
+      <span id="adPrivacy" class="hidden">｜<a href="#" id="adPrivacyLink">広告の設定</a></span>
+    </div>
   </div>
 </div>
 
@@ -63,6 +74,7 @@
   <div class="panel small">
     <h2>ひと休み</h2>
     <button id="resumeBtn">クリックで再開</button>
+    <div class="btns" style="margin-top:12px"><button class="btn2" id="pauseTitleBtn">タイトルへ</button></div>
     <div class="btns" style="margin-top:12px"><button class="bgmBtn btn3">♪ BGM オン（M）</button></div>
   </div>
 </div>
@@ -75,9 +87,27 @@
     <div id="result"></div>
     <div class="btns">
       <button id="retryBtn">もう一度、秋へ</button>
-      <a class="btn2" href="howto.html">遊び方</a>
+      <button class="btn2" id="overTitleBtn">タイトルへ</button>
     </div>
+    <div class="btns" style="margin-top:12px"><button class="btn3" id="shareBtn">結果をシェア</button></div>
   </div>
+</div>
+
+<!-- 車にはねられたとき：広告を見て、はねられる前からやり直す（アプリ版のみ） -->
+<div id="redo" class="overlay hidden">
+  <div class="panel small">
+    <h2>危ない！</h2>
+    <p class="redoMsg">広告を見て、はねられる少し前からやり直しますか？</p>
+    <button id="redoWatch">広告を見てやり直す</button>
+    <div class="note" id="redoNote"></div>
+    <div class="btns" style="margin-top:10px"><button class="btn2" id="redoNext">やり直さない</button></div>
+  </div>
+</div>
+
+<!-- アプリ版の「遊び方」（ページを移動せずに重ねて表示する） -->
+<div id="howtoPanel" class="overlay hidden">
+  <iframe id="howtoFrame" title="遊び方"></iframe>
+  <button id="howtoClose">閉じる</button>
 </div>
 
 <script type="module" src="src/main.js"></script>

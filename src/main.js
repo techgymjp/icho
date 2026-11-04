@@ -2282,6 +2282,7 @@ const sfx = (() => {
     init,
     get ctx() { return ctx; },
     resume() { ctx && ctx.state === 'suspended' && ctx.resume(); },
+    suspend() { ctx && ctx.state === 'running' && ctx.suspend(); },
     wind(level) { if (windGain) { windGain.gain.setTargetAtTime(0.08 + level * 0.3, ctx.currentTime, 0.5); windFilter.frequency.setTargetAtTime(350 + level * 900, ctx.currentTime, 0.5); } },
     catch(c) { tone(PENTA[Math.min(c - 1, PENTA.length - 1)], 0, 0.6, 0.1); },
     gold() { [0, 2, 4, 5, 7].forEach((n, k) => tone(PENTA[n], k * 0.07, 0.9, 0.09, 'triangle')); },
@@ -2386,7 +2387,7 @@ const wind = { x: 0.4, z: -0.2, gust: 0, nextGust: 18 };
 let lastPhase = '', lightupToasted = -1, lastAlive = trees.length, lastLeafToasted = false;
 
 function resetGame() {
-  elapsed = 0; caught = 0; golds = 0; restored = 0; combo = 0; endTimer = 0; lastLeafToasted = false; goldSum = 0; lastDayToast = 0;
+  elapsed = 0; caught = 0; golds = 0; restored = 0; combo = 0; redoUsed = 0; endTimer = 0; lastLeafToasted = false; goldSum = 0; lastDayToast = 0;
   player.pos.set(13.8, 0.12, 6); player.vy = 0; player.yaw = 0; player.pitch = -0.28; player.face = 0; player.charge = 0; player.climbing = null; player.riding = null; player.onGround = true; player.hop = null;
   cars.forEach((c) => { if (!c.parked) { c.active = false; c.mesh.visible = false; } });
   for (let i = 0; i < FALL_MAX; i++) if (fActive[i]) freeFalling(i);
@@ -2603,18 +2604,22 @@ function gameOver(reason = 'leaves') {
     <div class="big">${leftTrees}本<small> ／146本</small></div>
     <div class="sub2">残った葉　<b>${leftPct}%</b>（並木全体で、満開のときの何%か）</div>
     <div>よみがえらせた木 <b>${restored}</b> 本 ／ つかんだ葉 <b>${caught}</b>（金の葉 ${golds}枚）</div>
-    <div class="rank">称号：${rankOfClear(leftTrees)}</div>` : `
+    <div class="rank">称号：${rankOfClear(leftTrees)}</div>${redoUsed ? `<div class="note">やり直し ${redoUsed}回</div>` : ''}` : `
     <div>並木の秋を守った時間</div>
     <div class="big">${fullDays}日と${hours}時間</div>
     <div>葉が残っていた木 <b>${leftTrees}本</b> ／ 残った葉 <b>${leftPct}%</b></div>
     <div>よみがえらせた木 <b>${restored}</b> 本 ／ つかんだ葉 <b>${caught}</b></div>
-    <div class="rank">称号：${rankOf(days)}</div>`;
+    <div class="rank">称号：${rankOf(days)}</div>${redoUsed ? `<div class="note">やり直し ${redoUsed}回</div>` : ''}`;
+  if (clear) saveBest(leftTrees);
+  lastShareText = clear
+    ? `外苑いちょう並木　最後の一葉で、いちょう祭りの7日間を守り切った！ 葉が残った木は${leftTrees}本／146本（称号：${rankOfClear(leftTrees)}）${redoUsed ? `　やり直し${redoUsed}回` : ''}`
+    : `外苑いちょう並木　最後の一葉で、並木の秋を${fullDays}日と${hours}時間守った！${redoUsed ? `　やり直し${redoUsed}回` : ''}`;
   $('over').classList.remove('hidden');
   $('hud').classList.add('hidden');
 }
 
 function pauseGame() {
-  if (state !== 'play') return;
+  if (state !== 'play' || adBusy) return;
   releaseAllInput();
   state = 'pause';
   $('pause').classList.remove('hidden');
@@ -2622,16 +2627,166 @@ function pauseGame() {
 function startPlay() {
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();   // ボタンにフォーカスが残り、Spaceで押されてしまうのを防ぐ
   sfx.init(); sfx.resume(); bgm.start();
-  ['title', 'pause', 'over'].forEach((id) => $(id).classList.add('hidden'));
+  ['title', 'pause', 'over', 'redo'].forEach((id) => $(id).classList.add('hidden'));
   $('hud').classList.remove('hidden');
   state = 'play';
   if (!isTouch && !dragMode && canvas.requestPointerLock) {
     try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { dragMode = true; }); } catch { dragMode = true; }
   }
 }
-$('startBtn').onclick = () => { if (state !== 'title') return; resetGame(); startPlay(); setTimeout(() => ($('hint').style.opacity = 0), 9000); };
-$('resumeBtn').onclick = () => { if (state === 'pause') startPlay(); };
-$('retryBtn').onclick = () => { if (state !== 'over') return; resetGame(); startPlay(); };
+$('startBtn').onclick = () => { if (state !== 'title') return; withInterstitial(() => { resetGame(); startPlay(); setTimeout(() => ($('hint').style.opacity = 0), 9000); }); };
+$('resumeBtn').onclick = () => { if (state === 'pause') withInterstitial(startPlay); };
+$('retryBtn').onclick = () => { if (state !== 'over') return; withInterstitial(() => { resetGame(); startPlay(); }); };
+$('pauseTitleBtn').onclick = () => { if (state === 'pause') goTitle(); };
+$('overTitleBtn').onclick = () => { if (state === 'over') goTitle(); };
+$('pauseBtn').addEventListener('click', (e) => { e.stopPropagation(); pauseGame(); });
+
+// ---------------------------------------------------------------------------
+// アプリ版（Android）：広告・戻るボタン・シェア。Web 版では Capacitor がないので何もしない
+// ---------------------------------------------------------------------------
+const NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+const plugin = (name) => (NATIVE && window.Capacitor.Plugins ? window.Capacitor.Plugins[name] : null);
+const Ads = window.Ads || { available: false, canReward: false, showing: false, initDone: Promise.resolve(), showInterstitial: async () => {}, showRewarded: async () => 'unavailable', setBanner() {}, showPrivacyOptions: async () => {} };
+// 広告の表示中・裏に回ったときに音を止める
+window.Sound = { suspend() { sfx.suspend(); }, resume() { if (!document.hidden) sfx.resume(); } };
+
+// 全画面広告：プレイ開始・タイトルへ戻る・ポーズからの再開・もう一度 のたびに出す
+let adBusy = false;
+async function withInterstitial(next) {
+  if (adBusy) return;
+  if (Ads.available) { adBusy = true; await Ads.showInterstitial(3000); }
+  next();
+  adBusy = false;   // 次の画面に切り替わってから（広告のあと一瞬バナーが出ないように）
+}
+function goTitle() {
+  withInterstitial(() => {
+    if (document.pointerLockElement) document.exitPointerLock();
+    ['pause', 'over', 'redo'].forEach((id) => $(id).classList.add('hidden'));
+    $('hud').classList.add('hidden');
+    $('title').classList.remove('hidden');
+    state = 'title'; titleT = 0;
+    showBest();
+  });
+}
+
+// バナー：タイトル・遊び方・ポーズ・結果の画面だけ（プレイ中は操作ボタンと重なるので出さない）
+let howtoOpen = false;
+function updateBanner() {
+  const want = !adBusy && (howtoOpen || state === 'title' || state === 'pause' || state === 'over');
+  Ads.setBanner(want);
+  for (const id of ['title', 'pause', 'over', 'howtoPanel']) $(id).classList.toggle('withBanner', Ads.available && want);
+}
+
+// 遊び方：アプリではページを移動せず、重ねて表示する（閉じてタイトルに戻るときに全画面広告）
+if (NATIVE) {
+  document.querySelectorAll('.howtoLink').forEach((a) => a.addEventListener('click', (e) => {
+    e.preventDefault();
+    $('howtoFrame').src = 'howto.html?embed=1';
+    $('howtoPanel').classList.remove('hidden');
+    howtoOpen = true;
+  }));
+}
+function closeHowto() { if (!howtoOpen) return; withInterstitial(() => { $('howtoPanel').classList.add('hidden'); howtoOpen = false; }); }
+$('howtoClose').onclick = closeHowto;
+
+// Android の戻るボタン：プレイ中はポーズ（ポーズ中なら再開）、タイトル・結果画面ではアプリを閉じる
+if (plugin('App')) {
+  plugin('App').addListener('backButton', () => {
+    if (adBusy) return;
+    if (howtoOpen) closeHowto();
+    else if (state === 'play') pauseGame();
+    else if (state === 'pause') withInterstitial(startPlay);
+    else if (state === 'crash') redoDecline();
+    else plugin('App').exitApp();
+  });
+}
+// 裏に回ったら一時停止して音を止める（広告の表示中は広告側が音を止めている）
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { pauseGame(); sfx.suspend(); }
+  else if (!Ads.showing) sfx.resume();
+});
+
+// ---------- リワード広告：車にはねられたら、広告を見て、はねられる少し前からやり直す（アプリのみ・1ゲーム3回まで） ----------
+const REDO_MAX = 3, REDO_DELAY = 2.5, REDO_WAIT = 6;
+let redoUsed = 0, crashT = 0, redoT = 0, redoBusy = false;
+const safeTrail = [];   // 少し前のプレイヤーの位置（歩道の上で、車道から離れていた位置）
+function rememberSafe() {
+  const p = player.pos;
+  if (player.onGround && Math.abs(p.x) > ROAD_HW + 0.5 && p.z < AVE_START && !player.climbing) {
+    const last = safeTrail[safeTrail.length - 1];
+    if (!last || Math.hypot(last.x - p.x, last.z - p.z) > 1) { safeTrail.push(p.clone()); if (safeTrail.length > 20) safeTrail.shift(); }
+  }
+}
+function onCarHit() {
+  sfx.crash();
+  if (!Ads.canReward || redoUsed >= REDO_MAX) { gameOver('car'); return; }
+  // はねられた様子を見届けられるよう、少し待ってから案内を出す
+  state = 'crash'; crashT = REDO_DELAY; redoT = 0; redoBusy = false;
+  releaseAllInput();
+  if (document.pointerLockElement) document.exitPointerLock();
+}
+function updateCrash(dt) {
+  if (crashT > 0) {
+    crashT -= dt;
+    if (crashT <= 0) {
+      redoT = REDO_WAIT;
+      $('redoNote').textContent = `この${GOAL_DAYS}日間で、あと${REDO_MAX - redoUsed}回やり直せます`;
+      $('redoWatch').disabled = false; $('redoWatch').textContent = '広告を見てやり直す';
+      $('redo').classList.remove('hidden');
+    }
+    return;
+  }
+  if (redoBusy) return;
+  redoT -= dt;
+  $('redoNext').textContent = `やり直さない（${Math.max(0, Math.ceil(redoT))}）`;
+  if (redoT <= 0) redoDecline();
+}
+function redoDecline() { if (state !== 'crash' || redoBusy) return; $('redo').classList.add('hidden'); gameOver('car'); }
+$('redoNext').onclick = redoDecline;
+$('redoWatch').onclick = async () => {
+  if (state !== 'crash' || redoBusy || crashT > 0) return;
+  redoBusy = true;
+  $('redoWatch').disabled = true; $('redoWatch').textContent = '広告を読み込み中…';
+  const result = await Ads.showRewarded();
+  if (result !== 'rewarded') {
+    if (result === 'unavailable') { $('redoNote').textContent = '広告を読み込めませんでした'; await new Promise((r) => setTimeout(r, 1500)); }
+    redoBusy = false; redoDecline(); return;
+  }
+  // 最後まで見たときだけ：少し前の、歩道の上の位置からやり直す
+  redoUsed++;
+  const back = safeTrail.length > 3 ? safeTrail[safeTrail.length - 4] : safeTrail[0];
+  if (back) player.pos.copy(back); else player.pos.set(player.pos.x > 0 ? 13.8 : -13.8, 0.12, Math.min(player.pos.z, AVE_START - 2));
+  player.vy = 0; player.onGround = true; player.riding = null; player.climbing = null; player.hop = null;
+  for (const c of cars) if (!c.parked && c.active && Math.hypot(...carWorld(c).map((v, i) => v - (i ? player.pos.z : player.pos.x))) < 25) { c.active = false; c.mesh.visible = false; }
+  $('redo').classList.add('hidden');
+  redoBusy = false;
+  startPlay();
+};
+
+// ---------- シェア ----------
+let lastShareText = '';
+const SHARE_URL = 'https://play.google.com/store/apps/details?id=jp.techgym.icho';
+$('shareBtn').onclick = async () => {
+  const text = lastShareText || '外苑いちょう並木　最後の一葉';
+  const nativeShare = plugin('Share');
+  try {
+    if (nativeShare) await nativeShare.share({ title: '外苑いちょう並木　最後の一葉', text, url: SHARE_URL, dialogTitle: '結果をシェア' });
+    else if (navigator.share) await navigator.share({ title: '外苑いちょう並木　最後の一葉', text, url: location.href });
+    else window.open(`https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(location.href)}`, '_blank', 'noopener');
+  } catch (e) { /* キャンセル */ }
+};
+
+// ---------- タイトル画面：ベスト記録・バージョン・プライバシーポリシー・広告の設定 ----------
+function saveBest(n) { try { const b = +(localStorage.getItem('icho-best') || -1); if (n > b) localStorage.setItem('icho-best', String(n)); } catch {} }
+function showBest() {
+  let b = -1; try { b = +(localStorage.getItem('icho-best') || -1); } catch {}
+  $('best').innerHTML = b >= 0 ? `ベスト記録：7日目まで葉が残った木 <b>${b}本</b>` : '';
+  $('best').classList.toggle('hidden', b < 0);
+}
+showBest();
+if (window.APP_VERSION && window.APP_VERSION !== 'dev') $('buildInfo').textContent = window.APP_VERSION;
+Ads.initDone.then(() => { if (Ads.privacyOptionsRequired) $('adPrivacy').classList.remove('hidden'); });
+$('adPrivacyLink').addEventListener('click', (e) => { e.preventDefault(); Ads.showPrivacyOptions(); });
 
 // ---------------------------------------------------------------------------
 // メインループ
@@ -2684,6 +2839,7 @@ function frame() {
   step(Math.min(clock.getDelta(), 0.05));
   updateLOD(0.05);
   updateShafts();
+  updateBanner();
   camera.updateMatrixWorld();
   WIND_U.uSunDirV.value.copy(_sunDir).transformDirection(camera.matrixWorldInverse);
   sky.position.copy(camera.position);
@@ -2701,7 +2857,8 @@ function step(dt) {
     signalNow = updateSignals(elapsed);
     updateCars(dt, hour0, true);
     updatePlayer(dt);
-    if (carHitsPlayer()) { sfx.crash(); gameOver('car'); return; }
+    if (carHitsPlayer()) { onCarHit(); return; }
+    rememberSafe();
     const { total, alive } = updateTrees(dt);
     updateFalling(dt);
     updateBurst(dt);
@@ -2724,6 +2881,8 @@ function step(dt) {
       endTimer += dt;
       if (endTimer > 3.5) gameOver('winter');
     }
+  } else if (state === 'crash') {
+    updateCrash(dt);
   } else if (state === 'title') {
     avatar.g.visible = false;
     // タイトル画面：並木をゆっくり進むカメラ

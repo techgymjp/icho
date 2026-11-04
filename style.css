@@ -83,3 +83,16 @@ body.touch #touchUI { display: block; }
 @media (max-width: 600px) {
   #toast { top: auto; bottom: 200px; font-size: 18px; white-space: normal; width: 86vw; text-align: center; }
 }
+
+/* ---- アプリ版・タイトル・ポーズ ---- */
+.best { font-size: 15px; color: #fff3c4; margin: -6px 0 14px; }
+.best b { color: #ffd84a; font-size: 20px; }
+.legal { margin-top: 14px; font-size: 11px; color: #e8d9a8; opacity: .85; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.legal a { color: #ffe27a; }
+#pauseBtn { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); pointer-events: auto; width: 44px; height: 44px; padding: 0; border-radius: 50%; font-size: 16px; box-shadow: none; background: rgba(30,22,6,.55); color: #ffe27a; border: 1px solid rgba(255,216,74,.5); display: none; }
+body.touch #pauseBtn { display: block; }
+.redoMsg { font-size: 15px; color: #fff8e0; }
+#howtoPanel { padding: 0; background: #fff9e8; flex-direction: column; }
+#howtoFrame { flex: 1; width: 100%; border: 0; background: #fff9e8; }
+#howtoClose { margin: 10px auto calc(10px + env(safe-area-inset-bottom)); }
+.overlay.withBanner { padding-bottom: 66px; }

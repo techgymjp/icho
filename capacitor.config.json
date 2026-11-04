@@ -1,0 +1,8 @@
+{
+  "appId": "jp.techgym.icho",
+  "appName": "いちょう並木",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#1a1306"
+  }
+}

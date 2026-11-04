@@ -25,16 +25,13 @@ jobs:
       - uses: actions/configure-pages@v5
         with:
           enablement: true
-      - name: Collect site files
+      - name: Build site files
         run: |
-          mkdir _site
-          cp -r index.html howto.html style.css src _site/
-          touch _site/.nojekyll
-          # 更新したときに古いファイルがブラウザに残らないよう、参照に版番号を付ける
-          V=${GITHUB_SHA::8}
-          sed -i "s#src/main.js#src/main.js?v=$V#; s#style.css#style.css?v=$V#" _site/index.html
+          # Android アプリと同じ www/ を作る（版番号を付けて、ブラウザに古いファイルが残らないようにする）
+          CACHE_BUST=${GITHUB_SHA::8} node scripts/build-web.js
+          touch www/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: _site
+          path: www
       - id: deployment
         uses: actions/deploy-pages@v4

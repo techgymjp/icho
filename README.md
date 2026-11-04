@@ -30,6 +30,31 @@
 
 木の上や車の屋根には乗ることができ、そこからジャンプもできます。柵は越えて車道にも出られます。
 
+## Android アプリ
+
+Capacitor で Android アプリにしています（構成は techgymjp/jet-fighter の `docs/ANDROID_PORTING.md` と同じ）。
+
+- パッケージ名：`jp.techgym.icho`
+- 動作確認用 APK（デバッグ署名・テスト広告）：リリース画面 https://github.com/techgymjp/icho/releases/tag/android-latest ／ APK 直接 https://github.com/techgymjp/icho/releases/latest/download/icho.apk
+- スマホで入れるときは QR コード（`docs/apk-qr.png`）からリリース画面を開く
+
+![APK のリリース画面の QR コード](docs/apk-qr.png)
+
+| 種類 | 出す場面 |
+| --- | --- |
+| バナー | タイトル・遊び方・ポーズ・結果の画面（プレイ中は出さない） |
+| 全画面広告 | プレイ開始、タイトルへ戻る（遊び方・ポーズ・結果から）、ポーズからの再開、結果からもう一度 |
+| リワード広告 | 車にはねられたとき、広告を見て、はねられる少し前の歩道からやり直す（1ゲーム3回まで。結果画面に「やり直し N回」） |
+
+- ビルド：`npm ci` → `npm run build`（`www/` を作る）→ `npx cap sync android`。GitHub Actions（`.github/workflows/android.yml`）が push のたびに APK を作り、既定ブランチなら Release `android-latest` に載せる
+- Google Play 用の署名付き AAB は、GitHub Secrets（`ANDROID_KEYSTORE_BASE64` など4つ）を登録すると Actions の Artifact に出る
+- 本番の広告 ID は `ads.js` の `production` と `android/app/src/main/res/values/strings.xml` の `admob_app_id` に入れる（今は Google のテスト用）
+- Web 版（GitHub Pages）も同じ `www/` を公開している。Three.js は `vendor/` に同梱しているので、アプリはオフラインでも遊べる
+
+## ライセンス
+
+著作権はテックジム株式会社に帰属します（All rights reserved）。許可なく複製・改変・再配布すること、Web サイトやアプリとして公開・販売することを禁止します。テックジムの受講生が学習目的で複製・改変することは許可しますが、アプリストアでの公開・広告の掲載・販売などの商用利用は禁止です。詳しくは `LICENSE` を見てください。同梱の Three.js は MIT License です。
+
 ## 再現している実寸・配置
 
 | 項目 | 値 |

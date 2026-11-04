@@ -97,5 +97,9 @@
 
   <div class="center"><a class="back" href="./">ゲームに戻る</a></div>
 </main>
+<script>
+  // アプリの中で重ねて表示するとき（embed=1）は、「ゲームに戻る」を出さない（閉じるボタンはアプリ側にある）
+  if (/[?&]embed=1/.test(location.search)) document.querySelectorAll('.back').forEach((el) => el.closest('.center').remove());
+</script>
 </body>
 </html>
