@@ -96,3 +96,7 @@ body.touch #pauseBtn { display: block; }
 #howtoFrame { flex: 1; width: 100%; border: 0; background: #fff9e8; }
 #howtoClose { margin: 10px auto calc(10px + env(safe-area-inset-bottom)); }
 .overlay.withBanner { padding-bottom: 66px; }
+/* スマホでは木登り中の案内を折り返して、画面からはみ出さないようにする */
+@media (max-width: 600px) {
+  #climb { white-space: normal; width: 86vw; max-width: 420px; text-align: center; border-radius: 12px; line-height: 1.5; font-size: 12px; bottom: 200px; }
+}
