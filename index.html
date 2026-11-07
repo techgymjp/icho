@@ -27,23 +27,23 @@
   <div id="crosshair"></div>
   <div id="fps">-- fps</div>
   <div id="stats">
-    <div class="row"><span class="lbl">いちょう祭り</span><span id="time">0:00</span></div>
-    <div class="row"><span class="lbl">のこり</span><span id="left">7日</span></div>
-    <div class="row"><span class="lbl">並木の葉</span><span id="ratio">100%</span></div>
-    <div class="row"><span class="lbl">葉のある木</span><span id="alive">146</span><small>/146</small></div>
-    <div class="row"><span class="lbl">よみがえらせた木</span><span id="restored">0</span></div>
-    <div class="row"><span class="lbl">つかんだ葉</span><span id="caught">0</span></div>
+    <div class="row"><span class="lbl" data-i18n="hud.festival">いちょう祭り</span><span id="time">0:00</span></div>
+    <div class="row"><span class="lbl" data-i18n="hud.left">のこり</span><span id="left">7日</span></div>
+    <div class="row"><span class="lbl" data-i18n="hud.leaves">並木の葉</span><span id="ratio">100%</span></div>
+    <div class="row"><span class="lbl" data-i18n="hud.alive">葉のある木</span><span id="alive">146</span><small>/146</small></div>
+    <div class="row"><span class="lbl" data-i18n="hud.restored">よみがえらせた木</span><span id="restored">0</span></div>
+    <div class="row"><span class="lbl" data-i18n="hud.caught">つかんだ葉</span><span id="caught">0</span></div>
     <div id="phase">見頃</div>
   </div>
-  <div id="climb" class="hidden">木登り中（幹へ進むと登る・離れる方向で降りる / Space:幹を蹴ってジャンプ）</div>
-  <div id="gaugeWrap"><div class="lbl" id="gaugeLbl">ジャンプ（Space：押し続けるほど高く上がる）</div><div id="gauge"><div id="gaugeFill"></div></div></div>
+  <div id="climb" class="hidden" data-i18n="hud.climb">木登り中（幹へ進むと登る・離れる方向で降りる / Space:幹を蹴ってジャンプ）</div>
+  <div id="gaugeWrap"><div class="lbl" id="gaugeLbl" data-i18n="hud.gauge">ジャンプ（Space：押し続けるほど高く上がる）</div><div id="gauge"><div id="gaugeFill"></div></div></div>
   <canvas id="minimap" width="96" height="300"></canvas>
   <button id="bgmBtn" class="bgmBtn" title="BGMの切り替え（M）">♪ BGM オン（M）</button>
   <div id="toast"></div>
-  <div id="hint">枯れかけた木には光る玉が出る。触れるとよみがえる！（根元・てっぺん・幹の途中）</div>
+  <div id="hint" data-i18n="hud.hint">枯れかけた木には光る玉が出る。触れるとよみがえる！（根元・てっぺん・幹の途中）</div>
   <div id="touchUI">
     <div id="stick"><div id="knob"></div></div>
-    <button id="btnJump">ジャンプ</button>
+    <button id="btnJump" data-i18n="btn.jump">ジャンプ</button>
   </div>
   <button id="pauseBtn" aria-label="一時停止">Ⅱ</button>
 </div>
@@ -51,20 +51,21 @@
 <!-- Title -->
 <div id="title" class="overlay">
   <div class="panel">
-    <div class="sub">明治神宮外苑・晩秋</div>
-    <h1>外苑いちょう並木<span>最後の一葉</span></h1>
-    <p class="story">7日間でイチョウの葉をどれだけ残せるか？</p>
+    <div class="langs"><button class="langBtn" data-lang="ja">日本語</button><button class="langBtn" data-lang="en">English</button></div>
+    <div class="sub" data-i18n="title.sub">明治神宮外苑・晩秋</div>
+    <h1><span class="h1a" data-i18n="title.name">外苑いちょう並木</span><span data-i18n="title.name2">最後の一葉</span></h1>
+    <p class="story" data-i18n="title.story">7日間でイチョウの葉をどれだけ残せるか？</p>
     <div id="best" class="best hidden"></div>
     <div class="btns">
-      <button id="startBtn">並木を歩きはじめる</button>
-      <a class="btn2 howtoLink" href="howto.html">遊び方</a>
+      <button id="startBtn" data-i18n="title.start">並木を歩きはじめる</button>
+      <a class="btn2 howtoLink" href="howto.html" data-i18n="title.howto" data-i18n-href="howto.url">遊び方</a>
     </div>
     <div class="btns" style="margin-top:12px"><button class="bgmBtn btn3">♪ BGM オン（M）</button></div>
-    <div class="note">落ち葉が地面に着く前につかむと、願いが叶うとも言われています。</div>
+    <div class="note" data-i18n="title.note">落ち葉が地面に着く前につかむと、願いが叶うとも言われています。</div>
     <div id="legal" class="legal">
       <span id="buildInfo"></span>
-      <a href="https://techgym.jp/privacy-policy/" target="_blank" rel="noopener">プライバシーポリシー</a>
-      <span id="adPrivacy" class="hidden">｜<a href="#" id="adPrivacyLink">広告の設定</a></span>
+      <a href="https://techgym.jp/privacy-policy/" data-i18n="legal.privacy" data-i18n-href="url.privacy" target="_blank" rel="noopener">プライバシーポリシー</a>
+      <span id="adPrivacy" class="hidden">｜<a href="#" id="adPrivacyLink" data-i18n="legal.adSettings">広告の設定</a></span>
     </div>
   </div>
 </div>
@@ -72,9 +73,9 @@
 <!-- Pause -->
 <div id="pause" class="overlay hidden">
   <div class="panel small">
-    <h2>ひと休み</h2>
-    <button id="resumeBtn">クリックで再開</button>
-    <div class="btns" style="margin-top:12px"><button class="btn2" id="pauseTitleBtn">タイトルへ</button></div>
+    <h2 data-i18n="pause.title">ひと休み</h2>
+    <button id="resumeBtn" data-i18n="pause.resume">クリックで再開</button>
+    <div class="btns" style="margin-top:12px"><button class="btn2" id="pauseTitleBtn" data-i18n="btn.toTitle">タイトルへ</button></div>
     <div class="btns" style="margin-top:12px"><button class="bgmBtn btn3">♪ BGM オン（M）</button></div>
   </div>
 </div>
@@ -86,18 +87,18 @@
     <h2 id="overTitle">並木に冬が来た</h2>
     <div id="result"></div>
     <div class="btns">
-      <button id="retryBtn">もう一度、秋へ</button>
-      <button class="btn2" id="overTitleBtn">タイトルへ</button>
+      <button id="retryBtn" data-i18n="over.retry">もう一度、秋へ</button>
+      <button class="btn2" id="overTitleBtn" data-i18n="btn.toTitle">タイトルへ</button>
     </div>
-    <div class="btns" style="margin-top:12px"><button class="btn3" id="shareBtn">結果をシェア</button></div>
+    <div class="btns" style="margin-top:12px"><button class="btn3" id="shareBtn" data-i18n="over.share">結果をシェア</button></div>
   </div>
 </div>
 
 <!-- 車にはねられたとき：広告を見て、はねられる前からやり直す（アプリ版のみ） -->
 <div id="redo" class="overlay hidden">
   <div class="panel small">
-    <h2>危ない！</h2>
-    <p class="redoMsg">広告を見て、はねられる少し前からやり直しますか？</p>
+    <h2 data-i18n="redo.title">危ない！</h2>
+    <p class="redoMsg" data-i18n="redo.msg">広告を見て、はねられる少し前からやり直しますか？</p>
     <button id="redoWatch">広告を見てやり直す</button>
     <div class="note" id="redoNote"></div>
     <div class="btns" style="margin-top:10px"><button class="btn2" id="redoNext">やり直さない</button></div>
@@ -107,7 +108,7 @@
 <!-- アプリ版の「遊び方」（ページを移動せずに重ねて表示する） -->
 <div id="howtoPanel" class="overlay hidden">
   <iframe id="howtoFrame" title="遊び方"></iframe>
-  <button id="howtoClose">閉じる</button>
+  <button id="howtoClose" data-i18n="howto.close">閉じる</button>
 </div>
 
 <script type="module" src="src/main.js"></script>

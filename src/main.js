@@ -1,6 +1,7 @@
 // 外苑いちょう並木　最後の一葉
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { t as tr, LANG, applyStatic, setLang } from './i18n.js';
 
 const $ = (id) => document.getElementById(id);
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
@@ -2089,9 +2090,10 @@ const isTouch = matchMedia('(pointer: coarse)').matches;
 if (isTouch) {
   document.body.classList.add('touch');
   // スマホではキーボードの説明を出さない
-  $('gaugeLbl').textContent = 'ジャンプ（長押しで高く）';
-  $('climb').textContent = '木登り中（スティックを幹へ倒すと登る・離れる方向で降りる／ジャンプで幹を蹴る）';
-  $('hint').textContent = '枯れかけた木には光る玉が出る。触れるとよみがえる！';
+  $('gaugeLbl').dataset.i18n = 'hud.gaugeTouch';
+  $('climb').dataset.i18n = 'hud.climbTouch';
+  $('hint').dataset.i18n = 'hud.hintTouch';
+  $('resumeBtn').dataset.i18n = 'pause.resumeTouch';
 }
 const touch = { mx: 0, my: 0, stickId: null, lookId: null, lx: 0, ly: 0, moved: 0, sx: 0, sy: 0 };
 const stick = $('stick'), knob = $('knob');
@@ -2165,8 +2167,8 @@ function tryCatch() {
   fCaught[i] = 0.001;
   const now = elapsed;
   combo = now - lastCatch < 2.5 ? combo + 1 : 1; lastCatch = now;
-  if (fGold[i]) { caught += 10; golds++; toast('金の葉をつかんだ！ 願いが叶うかも'); sfx.gold(); }
-  else { caught++; sfx.catch(combo); if (combo >= 3) toast(`連続 ${combo}枚！`, 900); }
+  if (fGold[i]) { caught += 10; golds++; toast(tr('toast.gold')); sfx.gold(); }
+  else { caught++; sfx.catch(combo); if (combo >= 3) toast(tr('toast.combo', { n: combo }), 900); }
 }
 
 // ---------------------------------------------------------------------------
@@ -2204,7 +2206,7 @@ function dayLabel(t) {
   const totalH = START_HOUR + t / DAY_SEC * 24;
   const day = Math.floor(totalH / 24) + 1, h = totalH % 24;
   const hh = Math.floor(h), mm2 = Math.floor((h - hh) * 60);
-  return { day, hour: h, text: `${day}日目 ${hh}:${String(mm2).padStart(2, '0')}` };
+  return { day, hour: h, text: tr('hud.day', { d: day, t: `${hh}:${String(mm2).padStart(2, '0')}` }) };
 }
 
 // ---------------------------------------------------------------------------
@@ -2392,10 +2394,11 @@ const bgm = (() => {
   try { if (localStorage.getItem('icho-bgm') === '0') on = false; } catch {}
   return { start, toggle, get on() { return on; } };
 })();
+let syncBgmLabels = () => {};
 {
   // BGMの切り替え：Mキー、またはタイトル・一時停止・HUDのボタン
   const btns = [...document.querySelectorAll('.bgmBtn')];
-  const sync = () => btns.forEach((btn) => { btn.textContent = (bgm.on ? '♪ BGM オン' : '♪ BGM オフ') + (isTouch ? '' : '（M）'); btn.classList.toggle('off', !bgm.on); });
+  const sync = syncBgmLabels = () => btns.forEach((btn) => { btn.textContent = tr(bgm.on ? 'btn.bgmOn' : 'btn.bgmOff') + (isTouch ? '' : ' (M)'); btn.classList.toggle('off', !bgm.on); });
   const flip = () => { bgm.start(); bgm.toggle(); sync(); };
   sync();
   btns.forEach((btn) => btn.addEventListener('click', (e) => { e.stopPropagation(); flip(); }));
@@ -2453,7 +2456,7 @@ function restoreTree(t, ti) {
   restored++;
   doBurst(t);
   sfx.restore();
-  toast('光る玉に触れた！ 紅葉がよみがえる');
+  toast(tr('toast.restore'));
 }
 
 const _body = new THREE.Vector3();
@@ -2470,7 +2473,7 @@ function updateTrees(dt) {
     // てっぺんに触れたら紅葉が戻る
     const dx = body.x - t.orb.x, dy = body.y - t.orb.y, dz = body.z - t.orb.z;
     if (dx * dx + dy * dy + dz * dz < (t.orbKind === 'top' ? 2.6 : 1.8) ** 2 && t.cooldown <= 0 && t.ratio < RESTORE_AT) {
-      if (today - t.restoredDay < REVIVE_DAYS) { if (elapsed - lastUsedToast > 2.5) { lastUsedToast = elapsed; const n = REVIVE_DAYS - (today - t.restoredDay); toast(n === 1 ? 'この木はよみがえらせたばかり。また明日' : `この木はよみがえらせたばかり。あと${n}日`); } }
+      if (today - t.restoredDay < REVIVE_DAYS) { if (elapsed - lastUsedToast > 2.5) { lastUsedToast = elapsed; const n = REVIVE_DAYS - (today - t.restoredDay); toast(n === 1 ? tr('toast.reviveTomorrow') : tr('toast.reviveN', { n })); } }
       else restoreTree(t, ti);
     }
 
@@ -2493,7 +2496,7 @@ function updateTrees(dt) {
     else apexCol.set([1 * pulse, 0.82 * pulse, 0.35 * pulse], ti * 3);               // 金色に点灯：枯れはじめ
   }
   apexGeo.attributes.color.needsUpdate = true;
-  if (alive < lastAlive && alive > 0 && alive % 10 === 0) toast(`葉のある木は残り${alive}本`);
+  if (alive < lastAlive && alive > 0 && alive % 10 === 0) toast(tr('toast.alive', { n: alive }));
   lastAlive = alive;
   return { total, alive };
 }
@@ -2555,7 +2558,7 @@ function updateWind(dt) {
     wind.nextGust = rand(14, 32);
     wind.gustT = rand(3, 5);
     const a = rand(0, 6.28); wind.gx = Math.cos(a); wind.gz = Math.sin(a);
-    if (state === 'play') toast('木枯らしが吹いた！', 1500);
+    if (state === 'play') toast(tr('toast.gust'), 1500);
   }
   if (wind.gustT > 0) { wind.gustT -= dt; wind.gust = Math.min(1, wind.gust + dt * 1.5); }
   else wind.gust = Math.max(0, wind.gust - dt * 0.6);
@@ -2565,11 +2568,11 @@ function updateWind(dt) {
 }
 
 function phaseLabel(r) {
-  if (r > 0.72) return '見頃';
-  if (r > 0.45) return '散りさかり';
-  if (r > 0.2) return '落葉すすむ';
-  if (r > 0.02) return '冬支度';
-  return '最後の一葉';
+  if (r > 0.72) return tr('phase.peak');
+  if (r > 0.45) return tr('phase.falling');
+  if (r > 0.2) return tr('phase.thinning');
+  if (r > 0.02) return tr('phase.winter');
+  return tr('phase.last');
 }
 
 let hudT = 0;
@@ -2585,12 +2588,12 @@ function updateHUD(total, alive, dt) {
   $('alive').textContent = alive;
   $('ratio').textContent = `${(ratio * 100).toFixed(0)}%`;
   $('alive').classList.toggle('danger', alive <= 10);
-  $('left').textContent = `${Math.max(1, GOAL_DAYS - calDay(elapsed))}日`;
+  $('left').textContent = tr('hud.days', { n: Math.max(1, GOAL_DAYS - calDay(elapsed)) });
   $('restored').textContent = restored;
   $('caught').textContent = caught;
-  const ph = alive === 1 && total < 40 ? '最後の一葉' : phaseLabel(ratio);
+  const ph = alive === 1 && total < 40 ? tr('phase.last') : phaseLabel(ratio);
   $('phase').textContent = ph;
-  if (ph !== lastPhase && lastPhase && state === 'play') toast(ph === '最後の一葉' ? '最後の一葉を守れ！' : `並木は「${ph}」`);
+  if (ph !== lastPhase && lastPhase && state === 'play') toast(ph === tr('phase.last') ? tr('toast.lastLeaf') : tr('toast.phase', { p: ph }));
   lastPhase = ph;
   $('gaugeFill').classList.toggle('max', player.charge >= 1);
   $('climb').classList.toggle('hidden', !player.climbing);
@@ -2600,17 +2603,17 @@ function updateHUD(total, alive, dt) {
 
 function rankOfClear(n) {   // n：7日目の終わりに葉が残っていた木の本数
   // COMP検証（候補B）：ふつうのボット 8本前後、上手なボット 6〜14本
-  if (n >= 20) return 'いちょう並木の守り神';
-  if (n >= 10) return '黄金の並木の名人';
-  if (n >= 5) return '外苑の庭師';
-  return '並木の世話人';
+  if (n >= 20) return tr('rank.c4');
+  if (n >= 10) return tr('rank.c3');
+  if (n >= 5) return tr('rank.c2');
+  return tr('rank.c1');
 }
 function rankOf(days) {
-  if (days < 1) return '通りすがりの散歩人';
-  if (days < 2) return 'いちょう好き';
-  if (days < 3) return '並木の世話人';
-  if (days < 5) return '外苑の庭師';
-  return 'いちょう並木の守り神';
+  if (days < 1) return tr('rank.o1');
+  if (days < 2) return tr('rank.o2');
+  if (days < 3) return tr('rank.o3');
+  if (days < 5) return tr('rank.o4');
+  return tr('rank.o5');
 }
 let overReason = 'leaves';
 function gameOver(reason = 'leaves') {
@@ -2625,23 +2628,24 @@ function gameOver(reason = 'leaves') {
   const leftPct = leftLeaves > 0 && leftLeaves < 1 ? leftLeaves.toFixed(1) : Math.round(leftLeaves);
   window.__ichoResult = { reason, leftTrees, leftPct: +leftPct, days: +days.toFixed(2) };
   const clear = reason === 'clear';
-  $('overSub').textContent = clear ? 'いちょう祭りの7日間を守り切った！' : reason === 'car' ? '車道で車にぶつかってしまった' : '最後の一葉が散りました';
-  $('overTitle').textContent = clear ? '並木は最後まで黄金色' : reason === 'car' ? '危ない！ 車にはねられた' : '並木に冬が来た';
+  const key = clear ? 'Clear' : reason === 'car' ? 'Car' : 'Winter';
+  $('overSub').textContent = tr('over.sub' + key);
+  $('overTitle').textContent = tr('over.title' + key);
+  const redoLine = redoUsed ? `<div class="note">${tr('res.redo', { n: redoUsed })}</div>` : '';
   $('result').innerHTML = clear ? `
-    <div>7日目の終わりに、葉が残っていた木</div>
-    <div class="big">${leftTrees}本<small> ／146本</small></div>
-    <div class="sub2">残った葉　<b>${leftPct}%</b>（並木全体で、満開のときの何%か）</div>
-    <div>よみがえらせた木 <b>${restored}</b> 本 ／ つかんだ葉 <b>${caught}</b>（金の葉 ${golds}枚）</div>
-    <div class="rank">称号：${rankOfClear(leftTrees)}</div>${redoUsed ? `<div class="note">やり直し ${redoUsed}回</div>` : ''}` : `
-    <div>並木の秋を守った時間</div>
-    <div class="big">${fullDays}日と${hours}時間</div>
-    <div>葉が残っていた木 <b>${leftTrees}本</b> ／ 残った葉 <b>${leftPct}%</b></div>
-    <div>よみがえらせた木 <b>${restored}</b> 本 ／ つかんだ葉 <b>${caught}</b></div>
-    <div class="rank">称号：${rankOf(days)}</div>${redoUsed ? `<div class="note">やり直し ${redoUsed}回</div>` : ''}`;
+    <div>${tr('res.leftLabel')}</div>
+    <div class="big">${tr('res.trees', { n: leftTrees })}<small>${tr('res.of146')}</small></div>
+    <div class="sub2">${tr('res.leftPct', { p: leftPct })}</div>
+    <div>${tr('res.stats', { r: restored, c: caught, g: golds })}</div>
+    <div class="rank">${tr('res.rank', { r: rankOfClear(leftTrees) })}</div>${redoLine}` : `
+    <div>${tr('res.timeLabel')}</div>
+    <div class="big">${tr('res.time', { d: fullDays, h: hours })}</div>
+    <div>${tr('res.leftShort', { n: leftTrees, p: leftPct })}</div>
+    <div>${tr('res.statsShort', { r: restored, c: caught })}</div>
+    <div class="rank">${tr('res.rank', { r: rankOf(days) })}</div>${redoLine}`;
   if (clear) saveBest(leftTrees);
-  lastShareText = clear
-    ? `外苑いちょう並木　最後の一葉で、いちょう祭りの7日間を守り切った！ 葉が残った木は${leftTrees}本／146本（称号：${rankOfClear(leftTrees)}）${redoUsed ? `　やり直し${redoUsed}回` : ''}`
-    : `外苑いちょう並木　最後の一葉で、並木の秋を${fullDays}日と${hours}時間守った！${redoUsed ? `　やり直し${redoUsed}回` : ''}`;
+  lastShareText = (clear ? tr('share.clear', { n: leftTrees, r: rankOfClear(leftTrees) }) : tr('share.over', { d: fullDays, h: hours }))
+    + (redoUsed ? tr('share.redo', { n: redoUsed }) : '');
   $('over').classList.remove('hidden');
   $('hud').classList.add('hidden');
 }
@@ -2709,7 +2713,7 @@ function updateBanner() {
 if (NATIVE) {
   document.querySelectorAll('.howtoLink').forEach((a) => a.addEventListener('click', (e) => {
     e.preventDefault();
-    $('howtoFrame').src = 'howto.html?embed=1';
+    $('howtoFrame').src = tr('howto.url') + '?embed=1';
     $('howtoPanel').classList.remove('hidden');
     howtoOpen = true;
   }));
@@ -2758,15 +2762,15 @@ function updateCrash(dt) {
     crashT -= dt;
     if (crashT <= 0) {
       redoT = REDO_WAIT;
-      $('redoNote').textContent = `この${GOAL_DAYS}日間で、あと${REDO_MAX - redoUsed}回やり直せます`;
-      $('redoWatch').disabled = false; $('redoWatch').textContent = '広告を見てやり直す';
+      $('redoNote').textContent = tr('redo.note', { days: GOAL_DAYS, n: REDO_MAX - redoUsed });
+      $('redoWatch').disabled = false; $('redoWatch').textContent = tr('redo.watch');
       $('redo').classList.remove('hidden');
     }
     return;
   }
   if (redoBusy) return;
   redoT -= dt;
-  $('redoNext').textContent = `やり直さない（${Math.max(0, Math.ceil(redoT))}）`;
+  $('redoNext').textContent = tr('redo.nextN', { s: Math.max(0, Math.ceil(redoT)) });
   if (redoT <= 0) redoDecline();
 }
 function redoDecline() { if (state !== 'crash' || redoBusy) return; $('redo').classList.add('hidden'); gameOver('car'); }
@@ -2774,10 +2778,10 @@ $('redoNext').onclick = redoDecline;
 $('redoWatch').onclick = async () => {
   if (state !== 'crash' || redoBusy || crashT > 0) return;
   redoBusy = true;
-  $('redoWatch').disabled = true; $('redoWatch').textContent = '広告を読み込み中…';
+  $('redoWatch').disabled = true; $('redoWatch').textContent = tr('redo.loading');
   const result = await Ads.showRewarded();
   if (result !== 'rewarded') {
-    if (result === 'unavailable') { $('redoNote').textContent = '広告を読み込めませんでした'; await new Promise((r) => setTimeout(r, 1500)); }
+    if (result === 'unavailable') { $('redoNote').textContent = tr('redo.fail'); await new Promise((r) => setTimeout(r, 1500)); }
     redoBusy = false; redoDecline(); return;
   }
   // 最後まで見たときだけ：少し前の、歩道の上の位置からやり直す
@@ -2795,11 +2799,11 @@ $('redoWatch').onclick = async () => {
 let lastShareText = '';
 const SHARE_URL = 'https://play.google.com/store/apps/details?id=jp.techgym.icho';
 $('shareBtn').onclick = async () => {
-  const text = lastShareText || '外苑いちょう並木　最後の一葉';
+  const text = lastShareText || tr('share.title');
   const nativeShare = plugin('Share');
   try {
-    if (nativeShare) await nativeShare.share({ title: '外苑いちょう並木　最後の一葉', text, url: SHARE_URL, dialogTitle: '結果をシェア' });
-    else if (navigator.share) await navigator.share({ title: '外苑いちょう並木　最後の一葉', text, url: location.href });
+    if (nativeShare) await nativeShare.share({ title: tr('share.title'), text, url: SHARE_URL, dialogTitle: tr('share.dialog') });
+    else if (navigator.share) await navigator.share({ title: tr('share.title'), text, url: location.href });
     else window.open(`https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(location.href)}`, '_blank', 'noopener');
   } catch (e) { /* キャンセル */ }
 };
@@ -2808,7 +2812,7 @@ $('shareBtn').onclick = async () => {
 function saveBest(n) { try { const b = +(localStorage.getItem('icho-best') || -1); if (n > b) localStorage.setItem('icho-best', String(n)); } catch {} }
 function showBest() {
   let b = -1; try { b = +(localStorage.getItem('icho-best') || -1); } catch {}
-  $('best').innerHTML = b >= 0 ? `ベスト記録：7日目まで葉が残った木 <b>${b}本</b>` : '';
+  $('best').innerHTML = b >= 0 ? tr('title.best', { n: b }) : '';
   $('best').classList.toggle('hidden', b < 0);
 }
 showBest();
@@ -2826,7 +2830,8 @@ let titleT = 0;
 // ---------------------------------------------------------------------------
 // fps表示と画質の自動切り替え：高画質 → 標準（影なし・解像度1倍）→ 軽量（遠くの木をさらに簡略化）
 // ---------------------------------------------------------------------------
-const QUALITY_NAMES = ['高画質', '標準', '軽量', '最軽量'];
+const QUALITY_NAMES = { get length() { return 4; } };
+for (let i = 0; i < 4; i++) Object.defineProperty(QUALITY_NAMES, i, { get: () => tr('quality.' + i) });
 let quality = LOW ? 2 : 0, fpsFrames = 0, fpsTime = 0, fpsNow = 60, slowSec = 0, qualityHold = 5;
 function applyQuality(q) {
   quality = q;
@@ -2855,7 +2860,7 @@ function updateFps(dt) {
       if (qualityHold > 0) qualityHold -= fpsTime;
       else if (fpsNow < 30 && quality < 3) {
         slowSec += fpsTime;
-        if (slowSec >= 3) { applyQuality(quality + 1); toast(`動作が重いため「${QUALITY_NAMES[quality]}」モードに切り替えました`, 2500); }
+        if (slowSec >= 3) { applyQuality(quality + 1); toast(tr('toast.quality', { q: QUALITY_NAMES[quality] }), 2500); }
       } else slowSec = 0;
     }
     fpsTime = 0;
@@ -2893,7 +2898,7 @@ function step(dt) {
     updateBurst(dt);
     const hour = dayLabel(elapsed).hour;
     const sky = updateSky(hour);
-    if (sky.lightUp > 0.5 && lightupToasted !== Math.floor(elapsed / DAY_SEC)) { lightupToasted = Math.floor(elapsed / DAY_SEC); toast('夜のライトアップが始まった'); }
+    if (sky.lightUp > 0.5 && lightupToasted !== Math.floor(elapsed / DAY_SEC)) { lightupToasted = Math.floor(elapsed / DAY_SEC); toast(tr('toast.lightup')); }
     updatePeople(dt, total / (trees.length * LEAVES), hour);
     const cover = smooth(0.06, 0.88, total / (trees.length * LEAVES));
     CARPET_U.uCover.value = cover;
@@ -2903,10 +2908,10 @@ function step(dt) {
     const ratioNow = total / (trees.length * LEAVES);
     goldSum += ratioNow * dt;
     const day = calDay(elapsed);
-    if (day > lastDayToast && day < GOAL_DAYS) { lastDayToast = day; toast(day === GOAL_DAYS - 1 ? 'いちょう祭り 最終日！' : `いちょう祭り ${day + 1}日目　あと${GOAL_DAYS - day}日`); }
+    if (day > lastDayToast && day < GOAL_DAYS) { lastDayToast = day; toast(day === GOAL_DAYS - 1 ? tr('toast.lastDay') : tr('toast.day', { d: day + 1, n: GOAL_DAYS - day })); }
     if (elapsed >= GOAL_T()) gameOver('clear');
     else if (total === 0) {
-      if (!lastLeafToasted) { lastLeafToasted = true; toast('最後の一葉が散った……', 3000); sfx.fall(); }
+      if (!lastLeafToasted) { lastLeafToasted = true; toast(tr('toast.fallen'), 3000); sfx.fall(); }
       endTimer += dt;
       if (endTimer > 3.5) gameOver('winter');
     }
@@ -2966,6 +2971,10 @@ function mergeStatic() {
   console.log(`mergeStatic: ${before} → ${after} meshes`);
 }
 mergeStatic();
+// 言語：画面の文字を今の言語にし、タイトルの「日本語／English」で切り替えられるようにする
+function applyLang() { applyStatic(); syncBgmLabels(); showBest(); }
+document.querySelectorAll('.langBtn').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); setLang(b.dataset.lang); applyLang(); }));
+applyLang();
 frame();
 
 // デバッグ用（ブラウザのコンソールから）

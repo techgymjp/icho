@@ -5,6 +5,7 @@ on:
     paths:
       - 'index.html'
       - 'howto.html'
+      - 'howto-en.html'
       - '*.js'
       - '*.css'
       - 'src/**'

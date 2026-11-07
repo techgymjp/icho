@@ -6,7 +6,7 @@ const root = path.join(__dirname, '..');
 const out = path.join(root, 'www');
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(out);
-for (const item of ['index.html', 'howto.html', 'style.css', 'ads.js', 'src', 'vendor']) {
+for (const item of ['index.html', 'howto.html', 'howto-en.html', 'style.css', 'ads.js', 'src', 'vendor']) {
   const src = path.join(root, item);
   if (fs.existsSync(src)) fs.cpSync(src, path.join(out, item), { recursive: true });
 }

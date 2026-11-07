@@ -116,3 +116,10 @@ body.touch #pauseBtn { display: block; }
   #result .rank { font-size: 17px; }
   #over button, #over .btn2 { font-size: 15px; padding: 9px 20px; }
 }
+/* 言語の切り替え */
+.langs { display: flex; gap: 6px; justify-content: center; margin-bottom: 10px; }
+.langBtn { font-family: "Zen Kaku Gothic New", sans-serif; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 999px; box-shadow: none; background: rgba(0,0,0,.25); color: #e8d9a8; border: 1px solid rgba(255,216,74,.4); }
+.langBtn.on { background: linear-gradient(#ffe57a, #f2b705); color: #3a2800; }
+h1 .h1a { display: inline; font-size: 1em; letter-spacing: normal; color: inherit; margin: 0; }
+html[lang="en"] h1 span:not(.h1a) { letter-spacing: .12em; }
+html[lang="en"] .sub { letter-spacing: .12em; }
