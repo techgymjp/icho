@@ -22,16 +22,17 @@ const PER_ROW = 32;                 // 4列 × 32本 = 128本
 const TREE_TOTAL = 146;
 const SPACING = 9;                  // 9m間隔
 const LEAVES = 380;                 // 1本あたりの葉の房
-const FALL_MAX = 4000;
-const GROUND_MAX = 60000;
-const PEOPLE_MAX = 220;
+// スマホ（タッチ操作）と ?q=low は軽量版：描くものの数を減らす
+const LOW = new URLSearchParams(location.search).get('q') === 'low' || matchMedia('(pointer: coarse)').matches;
+const FALL_MAX = LOW ? 1200 : 4000;       // 舞い落ちる葉
+const GROUND_MAX = LOW ? 16000 : 60000;   // 地面の落ち葉（黄金の絨毯は別に描くので、少なくても見た目は変わりにくい）
+const PEOPLE_MAX = LOW ? 110 : 220;
 const DAY_SEC = 60;                 // 1分 = 1日
 const START_HOUR = 9;
 
 // ---------------------------------------------------------------------------
 // レンダラー / シーン
 // ---------------------------------------------------------------------------
-const LOW = new URLSearchParams(location.search).get('q') === 'low' || matchMedia('(pointer: coarse)').matches;
 const renderer = new THREE.WebGLRenderer({ antialias: !LOW });
 renderer.setPixelRatio(Math.min(devicePixelRatio, LOW ? 1 : 2));
 renderer.setSize(innerWidth, innerHeight);
@@ -190,6 +191,7 @@ const sky = new THREE.Mesh(new THREE.SphereGeometry(4500, 32, 16), new THREE.Sha
       gl_FragColor = vec4(c, 1.0); }`,
 }));
 sky.renderOrder = -1;
+sky.userData.dynamic = true;   // カメラについて動く（まとめない）
 scene.add(sky);
 
 // 星
@@ -367,8 +369,8 @@ for (const s of [-1, 1]) {
 }
 // 植樹帯の下草（ギボウシなど）
 {
-  const n = 1400;
-  const mesh = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 8, 6), lambert(0xffffff), n);
+  const n = LOW ? 260 : 1400;
+  const mesh = new THREE.InstancedMesh(LOW ? new THREE.IcosahedronGeometry(1, 0) : new THREE.SphereGeometry(1, 8, 6), lambert(0xffffff), n);
   for (let i = 0; i < n; i++) {
     const s = Math.random() < 0.5 ? -1 : 1;
     const inner = Math.random() < 0.5;
@@ -860,6 +862,7 @@ const shaftMat = (() => {
 })();
 const shafts = Array.from({ length: LOW ? 6 : 14 }, () => {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(rand(0.8, 2.2), 26), shaftMat);
+  m.userData.dynamic = true;
   m.userData.off = new THREE.Vector3(rand(-25, 25), 0, rand(-40, 20)); scene.add(m); return m;
 });
 let sunShaft = 0;
@@ -980,7 +983,7 @@ function updateShafts() {
 {
   const greens = [0x2f4a2a, 0x3a5a2f, 0x274226, 0x46612f, 0x5a4a2a, 0x7a4a26];
   const n = LOW ? 160 : 320;
-  const im = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), lambert(0xffffff), n);
+  const im = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, LOW ? 0 : 1), lambert(0xffffff), n);
   const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.2, 0.3, 1, 6).translate(0, 0.5, 0), lambert(0x4a3a2c), n);
   for (let i = 0; i < n; i++) {
     const x = EDGE + 3 + Math.random() * 27, z = rand(AVE_END + 4, 6);
@@ -1039,7 +1042,7 @@ const inSchool = (x, z) => (x > 140 && x < 235 && z < -120 && z > -215) || (x > 
 // 背景の木々（並木の外側）
 {
   const n = LOW ? 600 : 1100;
-  const geo = new THREE.IcosahedronGeometry(1, 1);
+  const geo = new THREE.IcosahedronGeometry(1, LOW ? 0 : 1);
   const mesh = new THREE.InstancedMesh(geo, lambert(0xffffff), n);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), c = new THREE.Color();
   for (let i = 0; i < n; i++) {
@@ -1092,9 +1095,11 @@ const lampHeadMat = new THREE.MeshBasicMaterial({ color: 0x555555 });
   LAMP_POS.forEach((p) => OBST.push({ x: p.x, z: p.z, r: 0.35, h: LAMP_H }));
 }
 // 夜は近くの街灯にだけ点光源を割り当てる（負荷対策）
-const LAMP_LIGHTS = Array.from({ length: LOW ? 2 : 6 }, () => { const l = new THREE.PointLight(0xffc98a, 0, 22, 1.6); scene.add(l); return l; });
+// 点光源は1つごとに全部の描画が重くなるので、軽量版では使わない（街灯は光の玉だけ）
+const LAMP_LIGHTS = Array.from({ length: LOW ? 0 : 6 }, () => { const l = new THREE.PointLight(0xffc98a, 0, 22, 1.6); scene.add(l); return l; });
 function updateLampLights(lightUp) {
   const p = player.pos;
+  if (!LAMP_LIGHTS.length) return;
   const near = LAMP_POS.map((v) => [v, (v.x - p.x) ** 2 + (v.z - p.z) ** 2]).sort((a, b) => a[1] - b[1]);
   LAMP_LIGHTS.forEach((l, i) => { const v = near[i][0]; l.position.set(v.x, v.y + LAMP_H + 0.05, v.z); l.intensity = lightUp * 18; });
 }
@@ -1248,7 +1253,7 @@ const GOAL_DAYS = 7, REVIVE_DAYS = 2;   // よみがえらせた日から2日た
 const RATE_BASE = (window.__ichoTune && window.__ichoTune.base) || 2.3, RATE_T = (window.__ichoTune && window.__ichoTune.T) || Infinity;   // 散る速さは7日間ずっと同じ（何もしないと約3.5日で最後の一葉が散る）   // 葉がこれより減ると「枯れかけ」：てっぺんの玉が点灯し、触れるとよみがえる
 function stageOf(r) { return r > 0.86 ? 0 : r > 0.62 ? 1 : r > 0.4 ? 2 : r > 0.2 ? 3 : r > 0.015 ? 4 : -1; }
 const TPL_H = 20, TPL_Y0 = 3.4;
-const N_CLUSTERS = LOW ? 2800 : 7000;
+const N_CLUSTERS = LOW ? 1700 : 7000;   // 軽量版は房を減らして、1枚ずつを大きくする
 const TPL = VARIANTS.map((V, vi) => {
   const tp = { x: 0, z: 0, y0: TPL_Y0, H: TPL_H, h: TPL_Y0 + TPL_H, R: TPL_H * V.rr, variant: vi };
   makeBranches(tp);
@@ -1273,7 +1278,7 @@ const TPL = VARIANTS.map((V, vi) => {
     pos.set([b.x + b.dx * d + Math.cos(ta) * r, b.y + b.dy * d + rand(-0.1, 0.25), b.z + b.dz * d + Math.sin(ta) * r], i * 3);
     _e.set(rand(-1.0, 0.6), b.a + Math.PI / 2 + rand(-1.3, 1.3), rand(-0.6, 0.6), 'YXZ');
     _q.setFromEuler(_e); quat.set([_q.x, _q.y, _q.z, _q.w], i * 4);
-    size[i] = rand(0.9, 1.4);
+    size[i] = rand(0.9, 1.4) * (LOW ? 1.3 : 1);
     ginkgoColor(_c); col.set([_c.r, _c.g, _c.b], i * 3);
   }
   // 房の並びをシャッフル：先頭からの枚数で各段階の葉の量を表す
@@ -1312,12 +1317,15 @@ const TPL = VARIANTS.map((V, vi) => {
     return { n, near: quadGeo(n, 1, 1), far: quadGeo(n, 3, 1.55) };
   });
   // 骨格：幹＋主枝＋二次枝
-  const parts = [new THREE.CylinderGeometry(0.1, 0.62, tp.h, 10).translate(0, tp.h / 2, 0)];
+  // 枝の筒はふた（両端の面）を省き、細い枝ほど角を少なくする。遠くの木は小枝を省いた簡単な骨格を使う
   const up = new THREE.Vector3(0, 1, 0);
-  for (const b of tp.br) parts.push(new THREE.CylinderGeometry(0.03, 0.13, b.len, 5).translate(0, b.len / 2, 0).applyQuaternion(_q.setFromUnitVectors(up, _v.set(b.dx, b.dy, b.dz))).translate(b.x, b.y, b.z));
-  for (const b of sec) parts.push(new THREE.CylinderGeometry(0.012, 0.035, b.len, 4).translate(0, b.len / 2, 0).applyQuaternion(_q.setFromUnitVectors(up, _v.set(b.dx, b.dy, b.dz))).translate(b.x, b.y, b.z));
-  const skeleton = mergeGeometries(parts.map((g) => g.toNonIndexed ? g.toNonIndexed() : g));
-  return { tp, pos, stages, skeleton };
+  const limb = (r0, r1, len, seg, b) => new THREE.CylinderGeometry(r0, r1, len, seg, 1, true).translate(0, len / 2, 0).applyQuaternion(_q.setFromUnitVectors(up, _v.set(b.dx, b.dy, b.dz))).translate(b.x, b.y, b.z);
+  const trunkGeo = () => new THREE.CylinderGeometry(0.1, 0.62, tp.h, LOW ? 7 : 10, 1, true).translate(0, tp.h / 2, 0);
+  const build = (parts) => mergeGeometries(parts.map((g) => g.toNonIndexed()));
+  const secUsed = LOW ? sec.filter((_, i) => i % 2 === 0) : sec;
+  const skeleton = build([trunkGeo(), ...tp.br.map((b) => limb(0.03, 0.13, b.len, LOW ? 4 : 5, b)), ...secUsed.map((b) => limb(0.012, 0.035, b.len, 3, b))]);
+  const skeletonFar = build([trunkGeo(), ...tp.br.map((b) => limb(0.03, 0.13, b.len, 3, b))]);
+  return { tp, pos, stages, skeleton, skeletonFar };
 });
 
 // 木ごとの配置（テンプレートを拡大縮小・回転）
@@ -1336,28 +1344,40 @@ function treeLeafWorldPos(t, out) {
   return out.set(T.pos[i * 3], T.pos[i * 3 + 1], T.pos[i * 3 + 2]).applyMatrix4(t.mat);
 }
 // インスタンス用メッシュ
-const skelMeshes = TPL.map((T) => { const m = new THREE.InstancedMesh(T.skeleton, barkMat, trees.length); m.castShadow = true; m.receiveShadow = true; scene.add(m); return m; });
+const skelMeshes = TPL.map((T) => [T.skeleton, T.skeletonFar].map((g) => { const m = new THREE.InstancedMesh(g, barkMat, trees.length); m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; m.count = 0; scene.add(m); return m; }));
 const leafMeshes = TPL.map((T) => T.stages.map((S) => ['near', 'far'].map((k) => {
   const m = new THREE.InstancedMesh(S[k], leafMat, trees.length);
   m.castShadow = !LOW; m.frustumCulled = false; m.count = 0;
   m.setColorAt(0, _c.set(1, 1, 1));
   scene.add(m); return m;
 })));
-TPL.forEach((T, vi) => { let n = 0; trees.forEach((t) => { if (t.variant === vi) skelMeshes[vi].setMatrixAt(n++, t.mat); }); skelMeshes[vi].count = n; });
 // 葉の量の段階・距離が変わったら並べ直す
 let LOD_FAR = LOW ? 45 : 70;
 let instDirty = true, instTimer = 0;
+const _frustum = new THREE.Frustum(), _projView = new THREE.Matrix4(), _sph = new THREE.Sphere();
 function updateLOD(dt) {
   instTimer -= dt;
   const cx = camera.position.x, cz = camera.position.z;
   if (instTimer <= 0) {
-    instTimer = 0.25;
-    for (const t of trees) { const lod = Math.hypot(t.x - cx, t.z - cz) > LOD_FAR ? 1 : 0; if (lod !== t.lod) { t.lod = lod; instDirty = true; } }
+    instTimer = 0.1;
+    // 画面に映らない木（カメラの後ろなど）は描かない。カメラを急に回しても欠けないよう、少し大きめの球で判定する
+    camera.updateMatrixWorld();
+    _frustum.setFromProjectionMatrix(_projView.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+    for (const t of trees) {
+      const lod = Math.hypot(t.x - cx, t.z - cz) > LOD_FAR ? 1 : 0;
+      _sph.center.set(t.x, t.h * 0.5, t.z); _sph.radius = t.h * 0.5 + t.R + 6;
+      const vis = _frustum.intersectsSphere(_sph);
+      if (lod !== t.lod || vis !== t.vis) { t.lod = lod; t.vis = vis; instDirty = true; }
+    }
   }
   if (!instDirty) return;
   instDirty = false;
   for (const vs of leafMeshes) for (const ss of vs) for (const m of ss) m.count = 0;
+  for (const ms of skelMeshes) for (const m of ms) m.count = 0;
   for (const t of trees) {
+    if (t.vis === false) { t.stage = stageOf(t.ratio); continue; }
+    const sk = skelMeshes[t.variant][t.lod > 0 ? 1 : 0];
+    sk.setMatrixAt(sk.count++, t.mat);
     const st = stageOf(t.ratio);
     t.stage = st;
     if (st < 0) continue;
@@ -1365,6 +1385,7 @@ function updateLOD(dt) {
     m.setMatrixAt(m.count, t.mat); m.setColorAt(m.count, t.tintColor); m.count++;
   }
   for (const vs of leafMeshes) for (const ss of vs) for (const m of ss) { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; }
+  for (const ms of skelMeshes) for (const m of ms) m.instanceMatrix.needsUpdate = true;
 }
 function markTree(t) { if (stageOf(t.ratio) !== t.stage) instDirty = true; }
 
@@ -1480,7 +1501,7 @@ function trimGroundLeaves(cover) {
 }
 function scatterInitialGround() {
   // 歩道は黄金の絨毯、植樹帯にも、車道は端に寄った落ち葉
-  for (let k = 0; k < 40000; k++) {
+  for (let k = 0; k < Math.round(GROUND_MAX * 0.66); k++) {
     const sd = Math.random() < 0.5 ? -1 : 1, r = Math.random();
     const x = sd * (r < 0.62 ? rand(WALK_IN, WALK_OUT) : r < 0.82 ? rand(ROAD_HW, WALK_IN) : r < 0.92 ? rand(WALK_OUT, EDGE) : rand(5.5, ROAD_HW));
     addGroundLeaf(x, rand(AVE_END, AVE_START), undefined, true);
@@ -1492,8 +1513,8 @@ function scatterInitialGround() {
 // ---------------------------------------------------------------------------
 // 歩く人々
 // ---------------------------------------------------------------------------
-const bodyMesh = new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.22, 0.85, 4, 8).translate(0, 0.66, 0), lambert(0xffffff), PEOPLE_MAX);
-const headMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.13, 10, 8).translate(0, 1.5, 0), lambert(0xe6c4a4), PEOPLE_MAX);
+const bodyMesh = new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.22, 0.85, LOW ? 2 : 4, LOW ? 6 : 8).translate(0, 0.66, 0), lambert(0xffffff), PEOPLE_MAX);
+const headMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.13, LOW ? 6 : 10, LOW ? 4 : 8).translate(0, 1.5, 0), lambert(0xe6c4a4), PEOPLE_MAX);
 bodyMesh.castShadow = headMesh.castShadow = true;
 bodyMesh.frustumCulled = headMesh.frustumCulled = false;
 bodyMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -1507,9 +1528,9 @@ for (let i = 0; i < PEOPLE_MAX; i++) {
 }
 // 帽子：つば付きの中折れ帽／ニット帽／ベレー帽の3種類を人ごとに
 const HAT_GEOS = [
-  mergeGeometries([new THREE.CylinderGeometry(0.25, 0.25, 0.025, 16).translate(0, 1.6, 0), new THREE.CylinderGeometry(0.12, 0.14, 0.14, 14).translate(0, 1.68, 0)]),
-  new THREE.SphereGeometry(0.145, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55).scale(1, 1.15, 1).translate(0, 1.53, 0),
-  new THREE.SphereGeometry(0.17, 12, 6).scale(1, 0.35, 1).translate(0.03, 1.63, 0),
+  mergeGeometries([new THREE.CylinderGeometry(0.25, 0.25, 0.025, LOW ? 8 : 16).translate(0, 1.6, 0), new THREE.CylinderGeometry(0.12, 0.14, 0.14, LOW ? 7 : 14).translate(0, 1.68, 0)]),
+  new THREE.SphereGeometry(0.145, LOW ? 7 : 12, LOW ? 4 : 8, 0, Math.PI * 2, 0, Math.PI * 0.55).scale(1, 1.15, 1).translate(0, 1.53, 0),
+  new THREE.SphereGeometry(0.17, LOW ? 7 : 12, LOW ? 4 : 6).scale(1, 0.35, 1).translate(0.03, 1.63, 0),
 ];
 const HAT_COLORS = [0x2b2b2e, 0x6b4a33, 0xb33a2e, 0xd9cdb2, 0x2f4a6b, 0x7a7d80, 0xe6a83a, 0x3f5f3a];
 const hatMeshes = HAT_GEOS.map((g) => { const m = new THREE.InstancedMesh(g, lambert(0xffffff), PEOPLE_MAX); m.castShadow = true; m.frustumCulled = false; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); return m; });
@@ -2549,7 +2570,13 @@ function phaseLabel(r) {
   return '最後の一葉';
 }
 
-function updateHUD(total, alive) {
+let hudT = 0;
+function updateHUD(total, alive, dt) {
+  // 文字の書き換えは画面の再計算が起きて重いので、1秒に6回だけ（ジャンプのゲージは毎フレーム）
+  $('gaugeFill').style.width = `${player.charge * 100}%`;
+  hudT -= dt;
+  if (hudT > 0) return;
+  hudT = 1 / 6;
   const ratio = total / (trees.length * LEAVES);
   const d = dayLabel(elapsed);
   $('time').textContent = d.text;
@@ -2563,7 +2590,6 @@ function updateHUD(total, alive) {
   $('phase').textContent = ph;
   if (ph !== lastPhase && lastPhase && state === 'play') toast(ph === '最後の一葉' ? '最後の一葉を守れ！' : `並木は「${ph}」`);
   lastPhase = ph;
-  $('gaugeFill').style.width = `${player.charge * 100}%`;
   $('gaugeFill').classList.toggle('max', player.charge >= 1);
   $('climb').classList.toggle('hidden', !player.climbing);
   $('crosshair').classList.toggle('ready', findCatchable() >= 0);
@@ -2798,16 +2824,17 @@ let titleT = 0;
 // ---------------------------------------------------------------------------
 // fps表示と画質の自動切り替え：高画質 → 標準（影なし・解像度1倍）→ 軽量（遠くの木をさらに簡略化）
 // ---------------------------------------------------------------------------
-const QUALITY_NAMES = ['高画質', '標準', '軽量'];
+const QUALITY_NAMES = ['高画質', '標準', '軽量', '最軽量'];
 let quality = LOW ? 2 : 0, fpsFrames = 0, fpsTime = 0, fpsNow = 60, slowSec = 0, qualityHold = 5;
 function applyQuality(q) {
   quality = q;
   const shadows = q === 0;
   renderer.shadowMap.enabled = shadows;
   sun.castShadow = shadows;
-  renderer.setPixelRatio(Math.min(devicePixelRatio, q === 0 ? 2 : 1));
+  // 描く解像度：高画質は端末の解像度（最大2倍）、最軽量は画面の7割（少しぼやけるが、描く量がほぼ半分になる）
+  renderer.setPixelRatio(q === 0 ? Math.min(devicePixelRatio, 2) : q === 3 ? Math.min(devicePixelRatio, 1) * 0.7 : Math.min(devicePixelRatio, 1));
   renderer.setSize(innerWidth, innerHeight);
-  LOD_FAR = q === 2 ? 40 : 70;
+  LOD_FAR = q >= 3 ? 22 : q === 2 ? 40 : 70;
   for (const vs of leafMeshes) for (const ss of vs) for (const m of ss) m.castShadow = shadows;
   trees.forEach((t) => { t.lod = -1; });
   instDirty = true; instTimer = 0;
@@ -2824,7 +2851,7 @@ function updateFps(dt) {
     // 遊んでいる最中に、30fpsを3秒続けて下回ったら画質を1段下げる（上げ直しはしない）
     if (state === 'play' && !document.hidden) {
       if (qualityHold > 0) qualityHold -= fpsTime;
-      else if (fpsNow < 30 && quality < 2) {
+      else if (fpsNow < 30 && quality < 3) {
         slowSec += fpsTime;
         if (slowSec >= 3) { applyQuality(quality + 1); toast(`動作が重いため「${QUALITY_NAMES[quality]}」モードに切り替えました`, 2500); }
       } else slowSec = 0;
@@ -2870,7 +2897,7 @@ function step(dt) {
     CARPET_U.uCover.value = cover;
     if (pileMat) pileMat.opacity = cover;
     trimGroundLeaves(cover);
-    updateHUD(total, alive);
+    updateHUD(total, alive, dt);
     const ratioNow = total / (trees.length * LEAVES);
     goldSum += ratioNow * dt;
     const day = calDay(elapsed);
@@ -2904,7 +2931,40 @@ function step(dt) {
     updateCars(dt, START_HOUR + 2, false);
   }
 }
+// 動かない建物・柵・石垣などを、同じ材質ごとに1つにまとめる（描画の命令の数を大きく減らして軽くする）
+function mergeStatic() {
+  scene.updateMatrixWorld(true);
+  const groups = new Map();
+  for (const o of scene.children) {
+    if (!o.isMesh || o.isInstancedMesh || o.userData.dynamic || !o.visible || Array.isArray(o.material)) continue;
+    const key = o.material.uuid + '|' + o.castShadow + '|' + o.receiveShadow + '|' + o.renderOrder;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(o);
+  }
+  let before = 0, after = 0;
+  for (const list of groups.values()) {
+    before += list.length;
+    if (list.length < 2) { after += list.length; continue; }
+    const geos = list.map((o) => {
+      let g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+      for (const name of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(name)) g.deleteAttribute(name);
+      if (!g.attributes.normal) g.computeVertexNormals();
+      if (!g.attributes.uv) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+      g.clearGroups();
+      return g.applyMatrix4(o.matrixWorld);
+    });
+    const merged = mergeGeometries(geos, false);
+    if (!merged) { after += list.length; continue; }
+    const m = new THREE.Mesh(merged, list[0].material);
+    m.castShadow = list[0].castShadow; m.receiveShadow = list[0].receiveShadow; m.renderOrder = list[0].renderOrder;
+    for (const o of list) scene.remove(o);
+    scene.add(m);
+    after++;
+  }
+  console.log(`mergeStatic: ${before} → ${after} meshes`);
+}
+mergeStatic();
 frame();
 
 // デバッグ用（ブラウザのコンソールから）
-window.__icho = { people, get apexCol() { return apexCol; }, scene, THREE, trees, player, cars, step(dt, n = 1) { for (let i = 0; i < n; i++) step(dt); }, get state() { return state; }, get elapsed() { return elapsed; }, set elapsed(v) { elapsed = v; } };
+window.__icho = { renderer, renderInfo: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles }), people, get apexCol() { return apexCol; }, scene, THREE, trees, player, cars, step(dt, n = 1) { for (let i = 0; i < n; i++) step(dt); }, get state() { return state; }, get elapsed() { return elapsed; }, set elapsed(v) { elapsed = v; } };
