@@ -104,3 +104,15 @@ body.touch #pauseBtn { display: block; }
 @media (max-width: 600px) {
   #pauseBtn { left: auto; right: 88px; transform: none; top: 14px; }
 }
+/* スマホの縦画面で結果画面がはみ出さないように詰める */
+@media (max-width: 600px) {
+  .panel { padding: 18px 16px; }
+  #over .sub { letter-spacing: .12em; font-size: 12px; }
+  #over h2 { font-size: 24px; margin: 6px 0 8px; }
+  #result { font-size: 13px; line-height: 1.7; margin-bottom: 12px; }
+  #result .big { font-size: 30px; }
+  #result .sub2 { font-size: 13px; }
+  #result .sub2 b { font-size: 18px; }
+  #result .rank { font-size: 17px; }
+  #over button, #over .btn2 { font-size: 15px; padding: 9px 20px; }
+}
