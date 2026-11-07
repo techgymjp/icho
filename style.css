@@ -123,3 +123,4 @@ body.touch #pauseBtn { display: block; }
 h1 .h1a { display: inline; font-size: 1em; letter-spacing: normal; color: inherit; margin: 0; }
 html[lang="en"] h1 span:not(.h1a) { letter-spacing: .12em; }
 html[lang="en"] .sub { letter-spacing: .12em; }
+html[lang="en"] .story { letter-spacing: .01em; font-size: 18px; }
