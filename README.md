@@ -48,7 +48,7 @@ Capacitor で Android アプリにしています（構成は techgymjp/jet-figh
 
 - ビルド：`npm ci` → `npm run build`（`www/` を作る）→ `npx cap sync android`。GitHub Actions（`.github/workflows/android.yml`）が push のたびに APK を作り、既定ブランチなら Release `android-latest` に載せる
 - Google Play 用の署名付き AAB は、GitHub Secrets（`ANDROID_KEYSTORE_BASE64` など4つ）を登録すると Actions の Artifact に出る
-- 本番の広告 ID は `ads.js` の `production` と `android/app/src/main/res/values/strings.xml` の `admob_app_id` に入れる（今は Google のテスト用）
+- 本番の広告 ID は `ads.js` の `production`、AdMob のアプリ ID は `android/app/src/main/res/values/strings.xml` の `admob_app_id`
 - Web 版（GitHub Pages）も同じ `www/` を公開している。Three.js は `vendor/` に同梱しているので、アプリはオフラインでも遊べる
 
 ## ライセンス
