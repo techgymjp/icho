@@ -100,3 +100,7 @@ body.touch #pauseBtn { display: block; }
 @media (max-width: 600px) {
   #climb { white-space: normal; width: 86vw; max-width: 420px; text-align: center; border-radius: 12px; line-height: 1.5; font-size: 12px; bottom: 200px; }
 }
+/* スマホでは一時停止ボタンをミニマップの左に置き、左上の枠（時刻）と重ならないようにする */
+@media (max-width: 600px) {
+  #pauseBtn { left: auto; right: 88px; transform: none; top: 14px; }
+}

@@ -2089,7 +2089,7 @@ const isTouch = matchMedia('(pointer: coarse)').matches;
 if (isTouch) {
   document.body.classList.add('touch');
   // スマホではキーボードの説明を出さない
-  $('gaugeLbl').textContent = 'ジャンプ（ボタンを押し続けるほど高く上がる）';
+  $('gaugeLbl').textContent = 'ジャンプ（長押しで高く）';
   $('climb').textContent = '木登り中（スティックを幹へ倒すと登る・離れる方向で降りる／ジャンプで幹を蹴る）';
   $('hint').textContent = '枯れかけた木には光る玉が出る。触れるとよみがえる！';
 }
