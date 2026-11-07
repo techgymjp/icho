@@ -23,7 +23,9 @@ const TREE_TOTAL = 146;
 const SPACING = 9;                  // 9m間隔
 const LEAVES = 380;                 // 1本あたりの葉の房
 // スマホ（タッチ操作）と ?q=low は軽量版：描くものの数を減らす
-const LOW = new URLSearchParams(location.search).get('q') === 'low' || matchMedia('(pointer: coarse)').matches;
+// ?q=low：軽量版を強制、?q=high：高画質に固定（ストア用のスクリーンショット撮影など。画質の自動切り替えもしない）
+const Q_PARAM = new URLSearchParams(location.search).get('q');
+const LOW = Q_PARAM === 'low' || (matchMedia('(pointer: coarse)').matches && Q_PARAM !== 'high');
 const FALL_MAX = LOW ? 1200 : 4000;       // 舞い落ちる葉
 const GROUND_MAX = LOW ? 16000 : 60000;   // 地面の落ち葉（黄金の絨毯は別に描くので、少なくても見た目は変わりにくい）
 const PEOPLE_MAX = LOW ? 110 : 220;
@@ -2849,7 +2851,7 @@ function updateFps(dt) {
     el.textContent = `${Math.round(fpsNow)} fps · ${QUALITY_NAMES[quality]}`;
     el.classList.toggle('slow', fpsNow < 30);
     // 遊んでいる最中に、30fpsを3秒続けて下回ったら画質を1段下げる（上げ直しはしない）
-    if (state === 'play' && !document.hidden) {
+    if (state === 'play' && !document.hidden && Q_PARAM !== 'high') {
       if (qualityHold > 0) qualityHold -= fpsTime;
       else if (fpsNow < 30 && quality < 3) {
         slowSec += fpsTime;
