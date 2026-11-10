@@ -33,6 +33,10 @@
   .center { text-align: center; }
   .note { font-size: 13px; color: var(--muted); }
   @media (max-width: 560px) { th { width: 40%; } table { font-size: 14px; } }
+  .storeLink { display: inline-flex; align-items: center; gap: 10px; margin-top: 20px; padding: 8px 16px; border-radius: 10px; background: #1a1a1a; color: #fff; text-decoration: none; }
+  .storeLink .gp { font-size: 20px; color: #ffd84a; }
+  .storeLink span:last-child { display: flex; flex-direction: column; line-height: 1.2; text-align: left; }
+  .storeLink small { font-size: 11px; opacity: .85; } .storeLink b { font-size: 16px; }
 </style>
 </head>
 <body>
@@ -95,6 +99,10 @@
     </ul>
   </section>
 
+  <!-- web-only -->
+  <div class="center"><a class="storeLink" href="https://play.google.com/store/apps/details?id=jp.techgym.icho" target="_blank" rel="noopener"><span class="gp">▶</span><span><small>Also available for Android</small><b>Get it on Google Play</b></span></a>
+  <p class="note">Google Play and the Google Play logo are trademarks of Google LLC.</p></div>
+  <!-- /web-only -->
   <div class="center"><a class="back" href="./">Back to the game</a></div>
 </main>
 <script>

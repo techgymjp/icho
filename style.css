@@ -124,3 +124,8 @@ h1 .h1a { display: inline; font-size: 1em; letter-spacing: normal; color: inheri
 html[lang="en"] h1 span:not(.h1a) { letter-spacing: .12em; }
 html[lang="en"] .sub { letter-spacing: .12em; }
 html[lang="en"] .story { letter-spacing: .01em; font-size: 18px; }
+/* Web 版だけ：Google Play へのリンク（アプリ用のビルドでは HTML ごと取り除く） */
+.storeLink { display: inline-flex; align-items: center; gap: 10px; margin-top: 14px; padding: 7px 16px; border-radius: 10px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.35); color: #fff; text-decoration: none; }
+.storeLink .gp { font-size: 18px; color: #ffd84a; }
+.storeLink span:last-child { display: flex; flex-direction: column; line-height: 1.25; text-align: left; }
+.storeLink small { font-size: 10px; opacity: .85; } .storeLink b { font-size: 14px; }

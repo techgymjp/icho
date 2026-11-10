@@ -10,6 +10,18 @@ for (const item of ['index.html', 'howto.html', 'howto-en.html', 'style.css', 'a
   const src = path.join(root, item);
   if (fs.existsSync(src)) fs.cpSync(src, path.join(out, item), { recursive: true });
 }
+// アプリ用のビルド（APP_BUILD=1）では、Web 版だけの部分（<!-- web-only --> … <!-- /web-only -->）を取り除く。
+// 他社ストアへのリンクなどがアプリのファイルに残らないようにするため（残っていたらビルドを止める）
+if (process.env.APP_BUILD === '1') {
+  const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk(path.join(dir, e.name)) : [path.join(dir, e.name)]);
+  for (const f of walk(out).filter((f) => /\.(html|js|css)$/.test(f) && !f.includes(`${path.sep}vendor${path.sep}`))) {
+    let s = fs.readFileSync(f, 'utf8');
+    s = s.replace(/<!-- web-only -->[\s\S]*?<!-- \/web-only -->\n?/g, '').replace(/\/\/ web-only:start[\s\S]*?\/\/ web-only:end\n?/g, '');
+    // アプリのシェア文に入れるストアの URL（SHARE_URL の行）は対象外
+    if (/play\.google\.com\/store|web-only/.test(s.replace(/^.*SHARE_URL.*$/gm, ''))) throw new Error(`Web 版だけの部分がアプリ用のファイルに残っています: ${f}`);
+    fs.writeFileSync(f, s);
+  }
+}
 // Google Play 用のビルドでは本番の広告を使う
 const mode = process.env.ADMOB_MODE === 'production' ? 'production' : 'test';
 fs.writeFileSync(path.join(out, 'ads-config.js'), `// ビルド時に生成\nwindow.AD_MODE = '${mode}';\n`);
