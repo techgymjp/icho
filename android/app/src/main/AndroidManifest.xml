@@ -36,4 +36,8 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- 画面は縦向きに固定しているが、縦画面に対応した端末であることは必須にしない
+         （横向きが基本の端末やタブレット・Chromebook でも Google Play からインストールできるように） -->
+    <uses-feature android:name="android.hardware.screen.portrait" android:required="false" />
 </manifest>
