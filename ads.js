@@ -13,7 +13,7 @@ window.Ads = (() => {
       },
       // 本番の広告ユニット（AdMob の Android アプリ「外苑いちょう並木」）。空の種類は本番ビルドでは出さない
       production: {
-        interstitial: 'ca-app-pub-6411535997477460/9057172791',
+        interstitial: 'ca-app-pub-6411535997477460/3454729421',
         rewarded: 'ca-app-pub-6411535997477460/7281056690',
         banner: 'ca-app-pub-6411535997477460/6080892765',
       },
